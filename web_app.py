@@ -345,7 +345,7 @@ elif menu == "신규 대여 신청":
                     if not name.strip() or not student_id.strip(): st.error("❌ 신청자 이름과 학번을 꼭 채워주세요.")
                     else:
                         prefix = f"REQ-{datetime.today().strftime('%Y%m')}-"
-                        same_month_reqs = df_rental[df_rental["신청ID"].str.startswith(prefix)]
+                        same_month_reqs = df_rental[df_rental["신청ID"].astype(str).str.startswith(prefix, na=False)]
                         new_num = "001" if same_month_reqs.empty else f"{max([int(rid.split('-')[-1]) for rid in same_month_reqs['신청ID'] if rid.split('-')[-1].isdigit()] + [0]) + 1:03d}"
                         new_req_id = prefix + new_num
                         new_rows, stock_error = [], False
