@@ -22,8 +22,8 @@ def load_data():
         conn = st.connection("gsheets", type=GSheetsConnection)
         
         # 데이터 불러오기 (ttl=0 은 캐시를 무시하고 항상 최신 데이터를 가져오라는 뜻입니다)
-        df_equip = conn.read(spreadsheet=EQUIPMENT_SHEET_URL, ttl=0)
-        df_rental = conn.read(spreadsheet=RENTAL_SHEET_URL, ttl=0)
+        df_equip = conn.read(spreadsheet=EQUIPMENT_SHEET_URL, ttl=600)
+        df_rental = conn.read(spreadsheet=RENTAL_SHEET_URL, ttl=600)
 
         # 공백 제거 등 데이터 정제
         for df in [df_equip, df_rental]:
