@@ -216,7 +216,7 @@ elif menu == "대여 신청 현황":
 
         if is_admin:
             st.subheader("🔓 관리자 전용 - 개별 대여 승인 처리")
-            pending_rentals = df_rental[df_rental["승인상태"].isin(["대기중", "승인대기"])].copy()
+            pending_rentals = df_rental[df_rental["승인상태"].str.strip().isin(["대기중", "승인대기", "대기"])].copy()
             if pending_rentals.empty:
                 st.success("✅ 현재 승인 대기 중인 신청 품목이 없습니다.")
             else:
