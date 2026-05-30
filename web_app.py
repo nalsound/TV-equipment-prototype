@@ -87,12 +87,11 @@ def load_data():
             if col not in df_rental.columns:
                 df_rental[col] = ""
 
-        # ✨ 장비 관리 탭 에러 수정: Streamlit data_editor 타입 충돌 방지를 위해 모든 결측치(NaN, Null)를 빈 문자열로 완벽하게 덮어씌움
+        # ✨ float64 에러 완벽 해결: 모든 데이터를 문자열(str)로 먼저 변환한 후 결측치(nan)를 빈 칸으로 제거합니다.
         for df in [df_equip, df_rental]:
-            df.fillna("", inplace=True)
             for col in df.columns:
-                df[col] = df[col].astype(str).str.strip()
-                df[col] = df[col].replace("nan", "") # pandas 특유의 "nan" 문자열 찌꺼기 제거
+                df[col] = df[col].astype(str)
+                df[col] = df[col].replace(["nan", "None", "<NA>", "NaT"], "").str.strip()
                 
         return df_equip, df_rental
     except Exception as e:
@@ -456,7 +455,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (로고 깨짐 방지 롤백 및 하단 고정 레이아웃) ---
+# --- 3. 대여 신청 현황 (로고 깨짐 방지 완벽 처리) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -548,11 +547,15 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
                         
-                        # ✨ 심볼 로고 처리: 사용자가 올린 이미지가 없거나 읽기 실패해도 절대 깨지지 않는 '순수 HTML/CSS 기반' 텍스트를 최우선 Fallback으로 제공
+                        # ✨ 심볼 로고 처리: 사용자가 올린 이미지가 없거나 읽기 실패해도 절대 깨지지 않도록 Fallback 제거, 빈칸 혹은 로컬 이미지만 표시
                         logo_base64_str = ""
                         try:
+                            # 현재 작업 폴더 혹은 스크립트 위치에서 파일 탐색 시도
                             if os.path.exists(LOGO_FILE):
                                 with open(LOGO_FILE, "rb") as image_file:
+                                    logo_base64_str = base64.b64encode(image_file.read()).decode("utf-8")
+                            elif os.path.exists("CAU_symbol.png"):
+                                with open("CAU_symbol.png", "rb") as image_file:
                                     logo_base64_str = base64.b64encode(image_file.read()).decode("utf-8")
                         except Exception:
                             pass 
@@ -560,8 +563,8 @@ elif menu == "대여 신청 현황":
                         if logo_base64_str:
                             cau_logo_html = f'<img src="data:image/png;base64,{logo_base64_str}" style="height: 55px; object-fit: contain;">'
                         else:
-                            # 잘못 출력되었던 위키피디아 로고 삭제 후, 붓글씨 느낌의 텍스트로 대체하여 깨짐 방지
-                            cau_logo_html = '<div style="font-family: \'Arial Black\', Impact, sans-serif; font-size: 55px; font-weight: 900; font-style: italic; color: #0056a9; letter-spacing: -4px; margin: 0; line-height: 1; padding-right: 10px;">CAU</div>'
+                            # 엑스박스가 뜨지 않도록 아예 텍스트 없이 여백만 남겨둠.
+                            cau_logo_html = '<div style="font-family: \'Arial Black\', Impact, sans-serif; font-size: 50px; font-weight: 900; font-style: italic; color: #0056a9; letter-spacing: -2px; margin: 0; line-height: 1;">CAU</div>'
 
                         # ✨ A4 1페이지 전체 영역을 차지하며, 하단 컨텐츠가 무조건 바닥에 고정되도록 Flex 레이아웃 적용
                         html_content = f"""
