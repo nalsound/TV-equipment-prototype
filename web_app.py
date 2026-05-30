@@ -28,7 +28,7 @@ def load_data():
             for col in df.select_dtypes(include=["object"]).columns:
                 df[col] = df[col].astype(str).str.strip()
 
-        # (수정됨) 과거 반납 완료 내역 가리기 로직 삭제 -> 이력 보존을 위해 전체 데이터를 가져옵니다.
+        # 과거 반납 완료 내역 가리기 로직 삭제 -> 이력 보존을 위해 전체 데이터를 가져옵니다.
 
         return df_equip, df_rental
         
@@ -203,7 +203,7 @@ elif menu == "대여 신청 현황":
     if df_rental.empty:
         st.info("현재 대여 및 대기 중인 신청 내역이 없습니다.")
     else:
-        # (수정됨) 화면에 띄울 때만 '반납완료' 내역 가리기
+        # 화면에 띄울 때만 '반납완료' 내역 가리기
         active_rentals_display = df_rental[df_rental["승인상태"] != "반납완료"]
         display_rental = active_rentals_display.drop(columns=["학번", "연락처"], errors="ignore") if not is_admin else active_rentals_display.copy()
         
@@ -386,11 +386,18 @@ elif menu == "기자재 반납 처리":
                 if not selected_to_return.empty:
                     target_ids = selected_to_return["장비ID"].tolist()
             
-                    # (수정됨) 상태를 반납완료로 변경하고 개인정보 파기
+                    # 상태를 반납완료로 변경
                     df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "반납완료"
+                    
+                    # ✨ [데이터 타입 오류 해결] 파기 문자를 덮어쓰기 전 문자열 타입으로 먼저 변환해 줍니다.
+                    df_rental["학번"] = df_rental["학번"].astype(str)
+                    df_rental["연락처"] = df_rental["연락처"].astype(str)
+                    
+                    # 개인정보 파기 덮어쓰기
                     df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
                     df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
 
+                    # 장비 상태를 대여가능으로 복구
                     df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
                     
                     save_data(df_equip, df_rental)
