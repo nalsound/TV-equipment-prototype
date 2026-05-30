@@ -260,7 +260,7 @@ elif menu == "기자재 이용 규정":
     (단, 촬영자에 한해서 본교의 졸업생인 경우 전임 교수 승인 하에 가능)
     8. 기자재를 신청하거나 이용하는 학생이 징계 중인 학생인 경우.
 
-    **제10조 【기자재 파손 및 분실 보상 절차】**
+    **제10조 【기자재 파 파손 및 분실 보상 절차】**
     1. 기자재 담당에게 해당 내용 보고.
     2. 연출자는 손망실 보고서를 작성하여 기자재 담당에게 제출 후 해당 장비 보상.
     3. 당시 정황을 따져 징계수위 결정 후 책임자에게 징계내용 통보.
@@ -461,6 +461,7 @@ elif menu == "대여 신청 현황":
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
         st.info("현재 대여 및 대기 중인 신청 내역이 없습니다.")
     else:
+        # ✨ 이미 삭제된 내역은 여기서 제외됨
         active_rentals = df_rental[~df_rental["승인상태"].isin(["반납완료", "승인거절"])].copy()
         display_rental = active_rentals.sort_values(by=["신청ID", "장비ID"]).copy()
         is_duplicate = display_rental.duplicated(subset=["신청ID"])
@@ -531,9 +532,13 @@ elif menu == "대여 신청 현황":
             
             st.markdown("---")
             st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄 (팝업 전용)")
-            valid_rental_ids = df_rental[df_rental["신청ID"] != ""]["신청ID"].unique().tolist()
+            
+            # ✨ [핵심 변경] 파기된 데이터(반납 등)가 목록에 절대 노출되지 않도록 필터 강화
+            valid_print_df = df_rental[~df_rental["승인상태"].isin(["승인거절", "반납완료"])].copy()
+            valid_rental_ids = valid_print_df[valid_print_df["신청ID"] != ""]["신청ID"].unique().tolist()
+            
             if not valid_rental_ids:
-                st.info("출력 가능한 대여 신청 내역이 없습니다.")
+                st.info("출력 가능한 대여 신청 내역이 없습니다. (모두 파기되었거나 신청 내역이 없습니다)")
             else:
                 selected_print_id = st.selectbox("🖨️ 출력 서류를 선택하세요", valid_rental_ids)
                 if selected_print_id:
@@ -735,11 +740,11 @@ elif menu == "기자재 반납 처리":
                 # 1. 장비 테이블(df_equip)의 상태를 '대여가능'으로 복구
                 df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
                 
-                # 2. 개인정보 보호를 위해 대여 내역(df_rental)에서 해당 장비의 행을 완전히 삭제
+                # 2. 개인정보 보호 및 A4 리스트 파기를 위해 대여 내역(df_rental)에서 해당 장비의 행을 DB에서 완전히 삭제
                 df_rental = df_rental[~df_rental["장비ID"].isin(target_ids)].copy()
 
                 save_data(df_equip, df_rental)
-                st.success(f"✅ 장비 {len(target_ids)}대의 반납 처리가 완료되었으며, 신청서(개인정보 포함)가 시스템에서 완전히 삭제되었습니다.")
+                st.success(f"✅ 장비 {len(target_ids)}대의 반납 처리가 완료되었으며, 신청서(A4 데이터)가 시스템에서 영구 파기되었습니다.")
                 st.rerun()
             else: 
                 st.warning("반납 처리할 장비를 표에서 먼저 체크해주세요.")
