@@ -15,8 +15,6 @@ from PIL import Image
 EQUIPMENT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1DkU-1hCQuTApnnFxfZAh1MXulrD6HxPHY4P1QjhqJq0/edit?gid=1121757229#gid=1121757229"
 RENTAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hV8oaUlEIEA4rF6peg083Td_1cNZbWbl6BCcEkRpkT8/edit?gid=183591911#gid=183591911"
 
-DEFAULT_IMAGE_URL = "https://via.placeholder.com/150/CCCCCC/666666?text=No+Image"
-
 # --- 공지사항 경로 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
@@ -45,7 +43,7 @@ DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 �
 우리 모두의 소중한 기자재입니다. 안전하고 올바른 이용을 부탁드립니다. 감사합니다."""
 
 def load_data():
-    """구글 스프레드시트에서 데이터를 불러옵니다. 이제 이미지URL 열도 함께 가져옵니다."""
+    """구글 스프레드시트에서 데이터를 불러옵니다. 이제 이미지URL 열도 완벽히 관리합니다."""
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         
@@ -149,6 +147,12 @@ else:
         st.rerun()
 
 is_admin = st.session_state.admin_auth
+
+st.sidebar.markdown("---")
+# ✨ 강력한 캐시 새로고침 버튼 (데이터 변경 시 꼬임 방지)
+if st.sidebar.button("🔄 최신 데이터 새로고침", help="구글 시트의 최신 데이터를 즉시 불러옵니다.", use_container_width=True):
+    st.cache_data.clear()
+    st.rerun()
 st.sidebar.markdown("---")
 
 menu_options = [
@@ -197,14 +201,6 @@ elif menu == "장비 목록 조회":
         df_summary_input["품명_clean"] = df_summary_input["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
         df_summary_input["규격_clean"] = df_summary_input["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
         
-        # 💡 같은 규격 내에서 존재하는 첫 번째 이미지를 찾아 썸네일로 활용하는 함수
-        def get_valid_image(urls):
-            for url in urls:
-                url_str = str(url).strip()
-                if url_str and url_str.lower() not in ["nan", "none", "<na>"]:
-                    return url_str
-            return DEFAULT_IMAGE_URL
-
         df_summary = (
             df_summary_input.groupby(["품명_clean", "규격_clean"])
             .agg(
@@ -213,9 +209,20 @@ elif menu == "장비 목록 조회":
                 승인대기=("현재상태", lambda x: (x == "승인대기").sum()),
                 대여중=("현재상태", lambda x: (x == "대여중").sum()),
                 점검및고장=("현재상태", lambda x: x.isin(["고장", "수리중"]).sum()),
-                사진=("이미지URL", get_valid_image)
+                # 빈 값이나 의미 없는 값이 아닌 실제 이미지 데이터(http 또는 data:)를 우선 추출
+                이미지URL=("이미지URL", lambda x: next((u for u in x if str(u).strip() and str(u).strip().lower() not in ["nan", "none", "<na>"] and (str(u).startswith("http") or str(u).startswith("data:"))), ""))
             ).reset_index()
         )
+        
+        # ✨ 사진이 없을 경우 엑스박스 대신 '장비 이름'이 적힌 깔끔한 플레이스홀더 이미지를 생성합니다.
+        def get_final_image_url(row):
+            val = str(row["이미지URL"]).strip()
+            if val.startswith("http") or val.startswith("data:"):
+                return val
+            encoded_spec = str(row["규격_clean"]).replace(" ", "+")
+            return f"https://via.placeholder.com/150/EAEAEA/333333?text={encoded_spec}"
+
+        df_summary["사진"] = df_summary.apply(get_final_image_url, axis=1)
         
         df_summary = df_summary.rename(columns={"품명_clean": "품명", "규격_clean": "규격"})
         cols = ["사진", "품명", "규격", "총보유수량", "대여가능", "승인대기", "대여중", "점검및고장"]
@@ -396,10 +403,13 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
     st.header("⚙️ 장비 일괄 관리 및 신규 등록")
     
     st.subheader("🛠️ 장비 상태 일괄/수동 변경")
-    cols_order = ["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "이미지URL", "비고"]
+    # 이미지 데이터가 너무 길어 표가 깨지는 것을 방지하기 위해 화면 표에서는 숨깁니다.
+    cols_order = ["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"]
     edited_equip_df = st.data_editor(df_equip[cols_order], hide_index=True, use_container_width=True)
     if st.button("💾 변경된 상태 한 번에 저장하기", type="primary"):
-        df_equip = edited_equip_df.copy()
+        # 이미지 열을 보존하면서 나머지 수정된 열 업데이트
+        for col in cols_order:
+            df_equip[col] = edited_equip_df[col]
         save_data(df_equip, df_rental)
         st.success("저장 완료!")
         st.rerun()
@@ -414,10 +424,11 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
         
         st.markdown("---")
         st.markdown("🖼️ **장비 사진 등록 (선택)**")
-        st.caption("사진을 업로드하면 시스템이 구글 시트에 맞게 자동으로 압축하여 저장합니다.")
-        # 📸 이미지 파일 업로드 위젯
+        st.caption("PC에 있는 사진을 업로드하면 시스템이 썸네일로 압축하여 구글 시트에 안전하게 저장합니다.")
+        
+        # 📸 이미지 파일 직접 업로드 기능
         uploaded_file = st.file_uploader("PC에서 사진 파일 업로드", type=["jpg", "jpeg", "png"])
-        new_img_url = st.text_input("또는 인터넷 이미지 URL 주소 직접 입력", placeholder="https://...")
+        new_img_url = st.text_input("또는 인터넷 이미지 URL 주소 직접 입력 (업로드 시 무시됨)", placeholder="https://...")
         
         new_remarks = st.text_input("📝 비고")
         
@@ -430,15 +441,15 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
                 new_num = f"{auto_ids['장비ID'].str.split('-').str[-1].astype(int).max() + 1:04d}" if not auto_ids.empty else "0001"
                 generated_id = prefix + new_num
                 
-                # 💡 [핵심] 업로드된 이미지를 썸네일로 압축하여 텍스트(Base64)로 변환하는 로직
+                # 💡 [업그레이드] 업로드된 이미지를 썸네일(최대 250px)로 압축 후 텍스트(Base64)로 변환!
                 final_image_val = ""
                 if uploaded_file is not None:
                     try:
                         img = Image.open(uploaded_file)
-                        if img.mode in ("RGBA", "P"): # 투명 배경 등 오류 방지
+                        if img.mode in ("RGBA", "P"): # 투명 배경 오류 방지
                             img = img.convert("RGB")
                         
-                        img.thumbnail((250, 250)) # 구글 시트 셀 용량 제한 방지를 위한 크기 최적화
+                        img.thumbnail((250, 250)) # 구글 시트 셀 용량 초과 방지를 위한 크기 최적화
                         buffered = io.BytesIO()
                         img.save(buffered, format="JPEG", quality=80)
                         img_str = base64.b64encode(buffered.getvalue()).decode()
