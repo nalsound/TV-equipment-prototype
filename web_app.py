@@ -1,6 +1,5 @@
 import os
 import re
-import base64
 from datetime import datetime
 import pandas as pd
 import streamlit as st
@@ -31,11 +30,11 @@ EQUIP_IMAGES = {
 }
 DEFAULT_IMAGE_URL = "https://via.placeholder.com/150/CCCCCC/666666?text=No+Image"
 
-# --- 공지사항 및 로고 경로 설정 ---
+# --- 공지사항 경로 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
-LOGO_FILE = os.path.join(BASE_DIR, "CAU_symbol.png") # 💡 중앙대학교 심볼 이미지 파일명
 
+# ✨ 학생증 지참 문구 추가됨
 DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
 
 안녕하세요. 기자재실입니다. 
@@ -45,6 +44,7 @@ DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 �
 * 기자재 대여 신청은 대여 희망일 기준 **최소 3일 전 신청을 원칙**으로 합니다.
 * 접수된 기자재 대여 신청서는 **매일 오전 10시와 오후 2시**에 일괄적으로 확인 및 승인 처리됩니다.
 * **대여 및 반납 시간은 09:00~17:00까지**입니다.
+* **기자재 대여(수령) 시, 본인 확인을 위해 반드시 실물 학생증 또는 모바일 학생증을 지참하여 제시해야 합니다.** (미지참 시 대여 불가)
 * 원활한 대여 준비를 위해 기한과 승인 시간을 고려하여 사전에 여유 있게 신청서를 제출해 주시기 바랍니다.
 * 본 시스템은 PC 웹 환경에 최적화되어 있으므로, 원활한 신청 및 화면 조회를 위해 스마트폰보다는 **컴퓨터 및 노트북에서 접속하는 것을 권장**합니다.
 
@@ -455,7 +455,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (로고 깨짐 방지 완벽 처리) ---
+# --- 3. 대여 신청 현황 (로고 제거 및 하단 고정 레이아웃) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -547,29 +547,11 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
                         
-                        # ✨ 심볼 로고 처리: 사용자가 올린 이미지가 없거나 읽기 실패해도 절대 깨지지 않도록 Fallback 제거, 빈칸 혹은 로컬 이미지만 표시
-                        logo_base64_str = ""
-                        try:
-                            # 현재 작업 폴더 혹은 스크립트 위치에서 파일 탐색 시도
-                            if os.path.exists(LOGO_FILE):
-                                with open(LOGO_FILE, "rb") as image_file:
-                                    logo_base64_str = base64.b64encode(image_file.read()).decode("utf-8")
-                            elif os.path.exists("CAU_symbol.png"):
-                                with open("CAU_symbol.png", "rb") as image_file:
-                                    logo_base64_str = base64.b64encode(image_file.read()).decode("utf-8")
-                        except Exception:
-                            pass 
-                        
-                        if logo_base64_str:
-                            cau_logo_html = f'<img src="data:image/png;base64,{logo_base64_str}" style="height: 55px; object-fit: contain;">'
-                        else:
-                            # 엑스박스가 뜨지 않도록 아예 텍스트 없이 여백만 남겨둠.
-                            cau_logo_html = '<div style="font-family: \'Arial Black\', Impact, sans-serif; font-size: 50px; font-weight: 900; font-style: italic; color: #0056a9; letter-spacing: -2px; margin: 0; line-height: 1;">CAU</div>'
-
-                        # ✨ A4 1페이지 전체 영역을 차지하며, 하단 컨텐츠가 무조건 바닥에 고정되도록 Flex 레이아웃 적용
+                        # ✨ 로고를 완전히 제거하고 텍스트 안내만 하단에 배치하도록 HTML 재구성
                         html_content = f"""
                         <div style="display: flex; flex-direction: column; min-height: 270mm; justify-content: space-between;">
                             
+                            <!-- 상단 컨텐츠: 제목 및 테이블 -->
                             <div>
                                 <h1 style="text-align:center; margin:0 0 20px 0; font-size:26px;">글로벌예술학부 기자재 대여 신청서</h1>
                                 <table style="width:100%; border-collapse:collapse; border:2px solid black; font-size:13px;">
@@ -612,6 +594,7 @@ elif menu == "대여 신청 현황":
                                 </table>
                             </div>
                             
+                            <!-- 하단 컨텐츠: 준수사항, 서명란, 접수처 안내 (margin-top: auto로 페이지 맨 아래 고정됨) -->
                             <div style="margin-top: auto; padding-top: 20px;">
                                 <div style="font-size:12px; line-height:1.5; text-align:left; border:1px solid #000; padding:10px;">
                                     <p style="font-weight:bold; margin:0 0 4px 0;">◎ 준수사항</p>
@@ -641,15 +624,11 @@ elif menu == "대여 신청 현황":
                                     <p>승인자 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
                                 </div>
                                 
-                                <div style="margin-top: 15px; border-top: 2px dashed #000; padding-top: 15px; display: flex; justify-content: space-between; align-items: center; font-family: 'Malgun Gothic', sans-serif;">
-                                    <div style="text-align: left; line-height: 1.3;">
-                                        <p style="margin: 0; font-size: 13px; font-weight: 800;">다빈치캠퍼스 신청서 접수 및 문의</p>
-                                        <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: 500;">1. e-mail: nalsound@cau.ac.kr &nbsp;&nbsp;&nbsp;&nbsp; 2. FAX: 031)675-7157 &nbsp;&nbsp;&nbsp;&nbsp; 이창호 (내선 3352)</p>
-                                        <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: 600; letter-spacing: -1px;">예술대학 글로벌예술학부 &nbsp;<span style="font-weight: 300; font-size:22px;">|</span>&nbsp; 805관 6101호</p>
-                                    </div>
-                                    <div style="text-align: right;">
-                                        {cau_logo_html}
-                                    </div>
+                                <!-- 다빈치캠퍼스 접수처 안내 (로고 제거) -->
+                                <div style="margin-top: 15px; border-top: 2px dashed #000; padding-top: 15px; text-align: left; font-family: 'Malgun Gothic', sans-serif; line-height: 1.3;">
+                                    <p style="margin: 0; font-size: 13px; font-weight: 800;">다빈치캠퍼스 신청서 접수 및 문의</p>
+                                    <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: 500;">1. e-mail: nalsound@cau.ac.kr &nbsp;&nbsp;&nbsp;&nbsp; 2. FAX: 031)675-7157 &nbsp;&nbsp;&nbsp;&nbsp; 이창호 (내선 3352)</p>
+                                    <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: 600; letter-spacing: -1px;">예술대학 글로벌예술학부 &nbsp;<span style="font-weight: 300; font-size:22px;">|</span>&nbsp; 805관 6101호</p>
                                 </div>
                             </div>
                             
