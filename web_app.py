@@ -69,7 +69,8 @@ def load_data():
         df_equip = conn.read(spreadsheet=EQUIPMENT_SHEET_URL, ttl=300)
         df_rental = conn.read(spreadsheet=RENTAL_SHEET_URL, ttl=300)
 
-        required_equip_cols = ["장비ID", "품명", "규격", "현재상태", "비고"]
+        # ✨ 기자재자산번호 컬럼 추가 (없으면 생성)
+        required_equip_cols = ["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"]
         for col in required_equip_cols:
             if col not in df_equip.columns:
                 df_equip[col] = ""
@@ -99,7 +100,7 @@ def save_data(df_equip, df_rental):
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
 # ==========================================
-# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수
+# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수 (수량을 품목 옆으로 이동)
 def get_item_icon_html(name, spec, qty):
     """장비명과 규격을 분석하여 직관적인 아이콘과 HTML 태그를 반환합니다."""
     combined_name = f"{name} {spec}".lower()
@@ -114,8 +115,8 @@ def get_item_icon_html(name, spec, qty):
     elif any(k in combined_name for k in ["flag", "플래그"]): icon = "🏴"
     else: icon = "📦"
         
-    # ✨ 2칸 분할에 어울리도록 여백(margin)을 없애고 컴팩트하게 조정한 HTML 
-    return f"<div style='background-color:#f8f9fa; padding:8px 10px; border-radius:4px; border:1px solid #e9ecef; display:flex; justify-content:space-between; align-items:center;'><span style='font-size:13px;'><b>{icon} {name}</b> <span style='font-size:11px; color:#555;'>({spec})</span></span><span style='font-weight:bold; color:#d32f2f; font-size:14px; white-space:nowrap;'>x {qty}대</span></div>"
+    # ✨ 수량을 이름 바로 옆에 붙여서 컴팩트하게 구성
+    return f"<div style='background-color:#f8f9fa; padding:6px 8px; border-radius:4px; border:1px solid #e9ecef; font-size:13px;'><b>{icon} {name}</b> <span style='font-size:11px; color:#555;'>({spec})</span> <span style='font-weight:bold; color:#d32f2f; margin-left:5px;'>x {qty}대</span></div>"
 
 # ==========================================
 # --- 스팀릿 웹 페이지 설정 ---
@@ -125,11 +126,13 @@ st.markdown("""
     <style>
     .printable-area { background-color: #ffffff; padding: 25px; border: 1px solid #ddd; border-radius: 8px; margin: 20px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
     @media print {
-        @page { size: A4; margin: 15mm; }
-        header[data-testid="stHeader"], section[data-testid="stSidebar"], div[data-testid="stToolbar"], .stButton, .stRadio, .stSelectbox, .stForm { display: none !important; }
+        @page { size: A4; margin: 10mm; }
+        /* Streamlit 기본 UI 요소들 숨기기 */
+        [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"], .stButton, footer { display: none !important; }
         .stApp { background-color: white !important; }
-        .stMainBlockContainer { max-width: 100% !important; padding: 0 !important; }
-        .printable-area { position: absolute; left: 0; top: 0; width: 100%; min-height: 297mm; background-color: white; padding: 10mm; z-index: 9999; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; border: none; box-shadow: none; margin: 0; }
+        /* 본문 영역 여백 초기화 및 풀사이즈 적용 */
+        .stMainBlockContainer { padding-top: 0 !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+        .printable-area { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
         table { border-collapse: collapse; width: 100%; border: 2px solid black !important; }
         th, td { border: 1px solid black !important; padding: 10px !important; font-size: 11pt !important; color: black !important; }
         th { background-color: #e0e0e0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -462,7 +465,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (A4 인쇄 + 품목 2칸 분할 적용) ---
+# --- 3. 대여 신청 현황 (A4 인쇄 백지 오류 수정 + 품목 3열 배치) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -554,7 +557,7 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
                         
-                        # ✨ CSS Grid를 적용하여 품목을 2열(1fr 1fr)로 나누어 출력합니다.
+                        # ✨ CSS Grid를 적용하여 품목을 3열(1fr 1fr 1fr)로 컴팩트하게 나눕니다.
                         html_content = f"""<div class='printable-area'>
                         <h1 style='text-align:center; margin-bottom:20px; font-size:26px;'>글로벌예술학부 기자재 대여 신청서</h1>
                         <table style='width:100%; border-collapse:collapse; border:2px solid black; font-size:14px;'>
@@ -563,7 +566,7 @@ elif menu == "대여 신청 현황":
                         <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>연락처</th><td style='border:1px solid black; padding:10px;'>{p_first['연락처']}</td><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>담당교수</th><td style='border:1px solid black; padding:10px;'>{p_first['담당교수']}</td></tr>
                         <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>교과명</th><td style='border:1px solid black; padding:10px;'>{p_first['교과명']}</td><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>촬영장소</th><td style='border:1px solid black; padding:10px;'>{p_first['촬영장소']}</td></tr>
                         <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여기간</th><td colspan='3' style='border:1px solid black; padding:10px;'><b>{p_first['대여날짜']}</b> ~ <b>{p_first['반납일자']}</b></td></tr>
-                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여 품목<br><span style='font-size:0.8em; font-weight:normal; color:#555;'>(총 {total_items}대)</span></th><td colspan='3' style='border:1px solid black; padding:10px;'><div style='display:grid; grid-template-columns:1fr 1fr; column-gap:10px; row-gap:8px;'>{items_html_str}</div></td></tr>
+                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여 품목<br><span style='font-size:0.8em; font-weight:normal; color:#555;'>(총 {total_items}대)</span></th><td colspan='3' style='border:1px solid black; padding:10px;'><div style='display:grid; grid-template-columns:1fr 1fr 1fr; column-gap:8px; row-gap:8px;'>{items_html_str}</div></td></tr>
                         <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>기타 기자재</th><td colspan='3' style='border:1px solid black; padding:10px;'>{p_first['기타기자재']}</td></tr>
                         </table>
                         <div style='margin-top:20px; font-size:12px; line-height:1.6; text-align:left; border:1px solid #000; padding:15px;'>
@@ -593,10 +596,11 @@ elif menu == "대여 신청 현황":
                         </div>"""
                         
                         html_content_safe = html_content.replace("\n", "")
-                        
                         st.markdown(html_content_safe, unsafe_allow_html=True)
+                        
+                        # ✨ 핵심 버그 픽스: window.parent.print()를 사용해 독립된 iframe이 아닌 전체 웹페이지를 출력하도록 수정
                         st.components.v1.html("""
-                            <button onclick="window.print()" style="padding:12px 24px; font-size:16px; font-weight:bold; cursor:pointer; background-color:#2e7d32; color:white; border:none; border-radius:8px; width:100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🖨️ 해당 신청서 A4 용지 인쇄하기 (Ctrl+P)</button>
+                            <button onclick="window.parent.print()" style="padding:12px 24px; font-size:16px; font-weight:bold; cursor:pointer; background-color:#2e7d32; color:white; border:none; border-radius:8px; width:100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🖨️ 해당 신청서 A4 용지 인쇄하기 (Ctrl+P)</button>
                         """, height=60)
 
 # --- 4. 품목별 대여 통계 ---
@@ -660,22 +664,28 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
     st.header("⚙️ 장비 일괄 관리 및 신규 등록")
     
     st.subheader("🛠️ 장비 상태 일괄/수동 변경")
-    st.caption("💡 표 안의 **'현재상태 ✏️'** 칸을 더블클릭하면 엑셀처럼 여러 장비의 상태를 바로바로 수정할 수 있습니다.")
+    st.caption("💡 표 안의 **'현재상태 ✏️'** 또는 **'자산번호 ✏️'** 칸을 더블클릭하면 데이터를 바로 수정할 수 있습니다.")
     
-    # 표 창 크기를 600으로 넓힘
+    # ✨ 기자재자산번호를 현재상태 바로 옆에 배치
+    cols_order = ["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"]
+    
     edited_equip_df = st.data_editor(
-        df_equip,
+        df_equip[cols_order],
         column_config={
             "장비ID": st.column_config.TextColumn("장비ID", disabled=True),
             "품명": st.column_config.TextColumn("품명", disabled=True),
             "규격": st.column_config.TextColumn("규격", disabled=True),
-            "비고": st.column_config.TextColumn("비고", disabled=True),
             "현재상태": st.column_config.SelectboxColumn(
                 "현재상태 ✏️",
                 help="클릭하여 장비의 상태를 변경하세요",
                 options=["대여가능", "대여중", "고장", "수리중", "승인대기"],
                 required=True
-            )
+            ),
+            "기자재자산번호": st.column_config.TextColumn(
+                "자산번호 ✏️", 
+                help="기자재의 자산번호를 입력하세요 (예: 202102479-001-00)"
+            ),
+            "비고": st.column_config.TextColumn("비고 ✏️", disabled=False)
         },
         hide_index=True,
         use_container_width=True,
@@ -683,21 +693,21 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
     )
 
     if st.button("💾 변경된 상태 한 번에 저장하기", type="primary"):
-        if not df_equip.equals(edited_equip_df):
+        if not df_equip[cols_order].equals(edited_equip_df):
             df_equip = edited_equip_df.copy()
             save_data(df_equip, df_rental)
-            st.success("✅ 장비 상태가 성공적으로 일괄 업데이트되었습니다!")
+            st.success("✅ 장비 정보가 성공적으로 일괄 업데이트되었습니다!")
             st.rerun()
         else:
-            st.info("💡 변경된 장비 상태가 없습니다.")
+            st.info("💡 변경된 장비 정보가 없습니다.")
             
     st.markdown("---")
     
-    # 신규 기자재 추가 등록을 하단으로 배치
     st.subheader("➕ 신규 기자재 추가 등록")
     with st.form("add_equipment_form", clear_on_submit=True):
         new_name = st.text_input("📦 품명 (예: 캠코더, 미러리스 카메라)")
         new_spec = st.text_input("📐 규격 (예: PWX-Z90, Sony FX3)")
+        new_asset_no = st.text_input("🏷️ 기자재자산번호 (선택)", placeholder="예: 202102479-001-00")
         new_remarks = st.text_input("📝 비고")
         if st.form_submit_button("🚀 새 장비 등록하기"):
             if not new_name.strip():
@@ -707,7 +717,16 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
                 auto_ids = df_equip[df_equip["장비ID"].str.startswith(prefix, na=False)]
                 new_num = f"{auto_ids['장비ID'].str.split('-').str[-1].astype(int).max() + 1:04d}" if not auto_ids.empty else "0001"
                 generated_id = prefix + new_num
-                new_equip_row = {"장비ID": generated_id, "품명": new_name.strip(), "규격": new_spec.strip() if new_spec.strip() else "-", "현재상태": "대여가능", "비고": new_remarks.strip() if new_remarks.strip() else "-"}
+                
+                new_equip_row = {
+                    "장비ID": generated_id, 
+                    "품명": new_name.strip(), 
+                    "규격": new_spec.strip() if new_spec.strip() else "-", 
+                    "현재상태": "대여가능", 
+                    "기자재자산번호": new_asset_no.strip() if new_asset_no.strip() else "-",
+                    "비고": new_remarks.strip() if new_remarks.strip() else "-"
+                }
+                
                 df_equip = pd.concat([df_equip, pd.DataFrame([new_equip_row])], ignore_index=True)
                 save_data(df_equip, df_rental)
                 st.success(f"🎉 등록 성공! 자동 발급된 ID: [{generated_id}]")
