@@ -11,15 +11,39 @@ from streamlit_gsheets import GSheetsConnection
 EQUIPMENT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1DkU-1hCQuTApnnFxfZAh1MXulrD6HxPHY4P1QjhqJq0/edit?gid=1121757229#gid=1121757229"
 RENTAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hV8oaUlEIEA4rF6peg083Td_1cNZbWbl6BCcEkRpkT8/edit?gid=183591911#gid=183591911"
 
-# --- 공지사항 텍스트 파일 (클라우드 임시 저장용) ---
+# --- 공지사항 텍스트 파일 및 기본 공지 내용 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
+
+DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
+
+안녕하세요. 기자재실입니다. 
+원활하고 안전한 기자재 대여 및 관리를 위해 아래 안내 사항을 반드시 숙지해 주시기 바랍니다.
+
+**1. 대여 신청 기한 및 승인 시간 안내**
+* 기자재 대여 신청은 대여 희망일 기준 **최소 3일 전 신청을 원칙**으로 합니다.
+* 접수된 기자재 대여 신청서는 **매일 오전 10시와 오후 2시**에 일괄적으로 확인 및 승인 처리됩니다.
+* 원활한 대여 준비를 위해 기한과 승인 시간을 고려하여 사전에 여유 있게 신청서를 제출해 주시기 바랍니다.
+
+**2. 신청서 외 장비 당일 현장 추가 불가**
+* 시스템에 제출된 **신청서에 기재된 품목 외에, 대여 당일 현장에서 즉흥적으로 장비를 추가하는 것은 절대 불가**합니다. 
+* 대여 신청 전, 촬영에 필요한 장비가 장바구니에 모두 정확하게 담겼는지 꼼꼼히 확인해 주시기 바랍니다.
+
+**3. 기자재 이용 규정 숙지 의무**
+* 좌측 메뉴의 **[기자재 이용 규정]**을 반드시 정독해 주시기 바랍니다. 
+* 규정 미숙지로 인해 발생하는 장비 대여 제한 및 배상 등의 불이익은 신청자 본인과 해당 팀에게 책임이 있습니다.
+
+**4. 개인정보(학번 및 연락처) 수집 동의 및 면책 안내**
+* 대여 신청 시 입력하시는 학번과 연락처는 대여 중 미반납 또는 긴급 상황 발생 시 연락을 위한 용도로만 활용되며, 반납 완료 시 시스템에서 즉시 파기됩니다.
+* 단, 연락처 오기재로 인한 연락 두절, 학생 본인의 부주의로 인한 정보 노출 등 **신청자 측의 귀책사유로 발생하는 어떠한 불이익 및 개인정보 관련 문제에 대해서도 기자재실은 일절 법적·도의적 책임을 지지 않습니다.**
+* 본 시스템을 통해 신규 대여를 신청하는 것은 위 개인정보 수집 및 면책 조항에 동의하는 것으로 간주합니다.
+
+우리 모두의 소중한 기자재입니다. 안전하고 올바른 이용을 부탁드립니다. 감사합니다."""
 
 def load_data():
     """구글 스프레드시트에서 실시간으로 데이터를 불러오는 함수"""
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        
         df_equip = conn.read(spreadsheet=EQUIPMENT_SHEET_URL, ttl=600)
         df_rental = conn.read(spreadsheet=RENTAL_SHEET_URL, ttl=600)
 
@@ -27,9 +51,7 @@ def load_data():
         for df in [df_equip, df_rental]:
             for col in df.select_dtypes(include=["object"]).columns:
                 df[col] = df[col].astype(str).str.strip()
-
         return df_equip, df_rental
-        
     except Exception as e:
         st.error(f"❌ 구글 시트에서 데이터를 불러오는 중 오류가 발생했습니다: {e}")
         st.stop()
@@ -44,7 +66,6 @@ def save_data(df_equip, df_rental):
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
 # ==========================================
-
 # --- 스팀릿 웹 페이지 설정 ---
 st.set_page_config(page_title="기자재 관리 시스템", layout="wide")
 
@@ -70,16 +91,30 @@ if "cart" not in st.session_state: st.session_state.cart = []
 if "admin_auth" not in st.session_state: st.session_state.admin_auth = False
 if "clear_inputs" not in st.session_state: st.session_state.clear_inputs = False
 if "submit_success" not in st.session_state: st.session_state.submit_success = False
+if "notice_agreed" not in st.session_state: st.session_state.notice_agreed = False
 
-# --- 공지사항 팝업 ---
-if "notice_shown" not in st.session_state:
-    notice_msg = "여러분들의 소중한 기자재입니다."
-    if os.path.exists(NOTICE_FILE):
-        with open(NOTICE_FILE, "r", encoding="utf-8") as f:
-            notice_msg = f.read().strip()
-    st.toast(notice_msg, icon="📢")
-    st.session_state.notice_shown = True
+# --- 공지사항 내용 불러오기 ---
+current_notice = DEFAULT_NOTICE
+if os.path.exists(NOTICE_FILE):
+    with open(NOTICE_FILE, "r", encoding="utf-8") as f:
+        current_notice = f.read().strip()
 
+# --- 🚨 공지사항 팝업 (동의 전까지 화면 차단) ---
+@st.dialog("📢 시스템 이용 안내 및 동의", width="large")
+def show_notice_dialog(notice_text):
+    st.markdown(notice_text)
+    st.markdown("---")
+    if st.checkbox("✅ 위 안내 사항 및 개인정보 수집/면책 조항에 모두 동의합니다."):
+        st.session_state.notice_agreed = True
+        st.rerun()
+
+if not st.session_state.notice_agreed:
+    show_notice_dialog(current_notice)
+    st.stop() # 동의하기 전까지 메인 시스템 로딩을 중지합니다.
+
+# ==========================================
+# 동의가 완료된 이후 실행되는 메인 시스템 로직
+# ==========================================
 st.title("🎬 기자재 관리 시스템")
 
 # 데이터 불러오기
@@ -88,7 +123,6 @@ df_equip, df_rental = load_data()
 # --- 사이드바 ---
 st.sidebar.subheader("🔒 관리자 로그인")
 if not st.session_state.admin_auth:
-    # 🚨 비밀번호가 변경된 부분입니다.
     input_password = st.sidebar.text_input("관리자 비밀번호를 입력하세요", type="password")
     if input_password == "Cau3352":
         st.session_state.admin_auth = True
@@ -103,26 +137,18 @@ else:
 
 is_admin = st.session_state.admin_auth
 st.sidebar.markdown("---")
-
-# 🚨 메뉴에 '기자재 이용 규정'이 추가되었습니다.
 menu = st.sidebar.radio("📌 메뉴 선택", ["공지사항", "기자재 이용 규정", "장비 목록 조회", "대여 신청 현황", "신규 대여 신청", "기자재 반납 처리"])
 
 # --- 0. 공지사항 메뉴 ---
 if menu == "공지사항":
     st.header("📢 공지사항")
-    current_notice = "등록된 공지사항이 없습니다."
-    if os.path.exists(NOTICE_FILE):
-        with open(NOTICE_FILE, "r", encoding="utf-8") as f:
-            current_notice = f.read().strip()
-
     if is_admin:
         st.info("관리자 모드입니다. 아래에서 공지사항을 수정하고 저장할 수 있습니다.")
-        new_notice = st.text_area("📝 공지사항 내용 수정", value=current_notice, height=200)
+        new_notice = st.text_area("📝 공지사항 내용 수정", value=current_notice, height=400)
         if st.button("💾 공지사항 저장 및 적용하기", type="primary"):
             with open(NOTICE_FILE, "w", encoding="utf-8") as f:
                 f.write(new_notice)
             st.success("✅ 공지사항이 성공적으로 업데이트되었습니다!")
-            st.session_state.notice_shown = False 
             st.rerun()
     else:
         st.markdown("### 📌 안내 말씀")
@@ -291,8 +317,8 @@ elif menu == "대여 신청 현황":
     if df_rental.empty:
         st.info("현재 대여 및 대기 중인 신청 내역이 없습니다.")
     else:
-        # 화면에 띄울 때만 '반납완료' 내역 가리기
-        active_rentals_display = df_rental[df_rental["승인상태"] != "반납완료"]
+        # 화면에 띄울 때만 '반납완료' 및 '승인거절' 내역 가리기
+        active_rentals_display = df_rental[~df_rental["승인상태"].isin(["반납완료", "승인거절"])]
         display_rental = active_rentals_display.drop(columns=["학번", "연락처"], errors="ignore") if not is_admin else active_rentals_display.copy()
         
         st.caption("🔓 관리자 모드: 모든 신청인의 정보가 정상 노출됩니다." if is_admin else "🔒 학생들의 개인정보 보호를 위해 '학번' 및 '연락처'는 관리자 로그인 시에만 조회됩니다.")
@@ -300,26 +326,52 @@ elif menu == "대여 신청 현황":
         st.markdown("---")
 
         if is_admin:
-            st.subheader("🔓 관리자 전용 - 개별 대여 승인 처리")
+            st.subheader("🔓 관리자 전용 - 개별 대여 승인 및 거절 처리")
             pending_rentals = df_rental[df_rental["승인상태"].str.strip().isin(["대기중", "승인대기", "대기"])].copy()
             if pending_rentals.empty:
                 st.success("✅ 현재 승인 대기 중인 신청 품목이 없습니다.")
             else:
-                st.markdown("**[ 대기 중인 상세 장비 목록 ] - 승인할 장비의 체크박스를 선택하세요.**")
+                st.markdown("**[ 대기 중인 상세 장비 목록 ] - 승인 또는 거절할 장비의 체크박스를 선택하세요.**")
                 select_all_pending = st.checkbox("☑️ 표 전체 선택 / 해제", key="select_all_pending")
                 pending_rentals.insert(0, "선택", select_all_pending)
                 edited_pending = st.data_editor(pending_rentals[["선택", "신청ID", "이름", "장비ID", "품명", "규격", "대여날짜", "반납일자"]], column_config={"선택": st.column_config.CheckboxColumn("선택", default=False)}, hide_index=True, use_container_width=True)
-                if st.button("⭕ 선택한 장비 개별 승인하기", type="primary"):
-                    selected_pending = edited_pending[edited_pending["선택"] == True]
-                    if not selected_pending.empty:
-                        target_ids = selected_pending["장비ID"].tolist()
-                        df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "대여중"
-                        df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여중"
-                        save_data(df_equip, df_rental)
-                        st.success(f"🎉 장비 {len(target_ids)}대의 대여가 개별 승인되었습니다.")
-                        st.rerun()
-                    else:
-                        st.warning("승인할 장비를 표에서 먼저 체크해주세요.")
+                
+                # 🚨 승인 버튼과 거절 버튼 분리 배치
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("⭕ 선택한 장비 승인하기", type="primary", use_container_width=True):
+                        selected_pending = edited_pending[edited_pending["선택"] == True]
+                        if not selected_pending.empty:
+                            target_ids = selected_pending["장비ID"].tolist()
+                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "대여중"
+                            df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여중"
+                            save_data(df_equip, df_rental)
+                            st.success(f"🎉 장비 {len(target_ids)}대의 대여가 개별 승인되었습니다.")
+                            st.rerun()
+                        else:
+                            st.warning("승인할 장비를 표에서 먼저 체크해주세요.")
+                with col_btn2:
+                    if st.button("❌ 선택한 장비 거절하기", use_container_width=True):
+                        selected_pending = edited_pending[edited_pending["선택"] == True]
+                        if not selected_pending.empty:
+                            target_ids = selected_pending["장비ID"].tolist()
+                            
+                            # 거절 상태 변경 및 개인정보 즉시 파기
+                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "승인거절"
+                            
+                            df_rental["학번"] = df_rental["학번"].astype(str)
+                            df_rental["연락처"] = df_rental["연락처"].astype(str)
+                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
+                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
+                            
+                            # 장비는 다시 다른 사람이 대여할 수 있도록 대여가능 상태로 복구
+                            df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
+                            
+                            save_data(df_equip, df_rental)
+                            st.error(f"🚫 장비 {len(target_ids)}대의 대여가 거절되었으며, 개인정보가 파기되었습니다.")
+                            st.rerun()
+                        else:
+                            st.warning("거절할 장비를 표에서 먼저 체크해주세요.")
             
             st.markdown("---")
             st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄")
