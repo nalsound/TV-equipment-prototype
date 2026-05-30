@@ -100,7 +100,7 @@ def save_data(df_equip, df_rental):
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
 # ==========================================
-# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수 (수량을 품목 옆으로 이동)
+# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수
 def get_item_icon_html(name, spec, qty):
     """장비명과 규격을 분석하여 직관적인 아이콘과 HTML 태그를 반환합니다."""
     combined_name = f"{name} {spec}".lower()
@@ -115,7 +115,6 @@ def get_item_icon_html(name, spec, qty):
     elif any(k in combined_name for k in ["flag", "플래그"]): icon = "🏴"
     else: icon = "📦"
         
-    # ✨ 수량을 이름 바로 옆에 붙여서 컴팩트하게 구성
     return f"<div style='background-color:#f8f9fa; padding:6px 8px; border-radius:4px; border:1px solid #e9ecef; font-size:13px;'><b>{icon} {name}</b> <span style='font-size:11px; color:#555;'>({spec})</span> <span style='font-weight:bold; color:#d32f2f; margin-left:5px;'>x {qty}대</span></div>"
 
 # ==========================================
@@ -125,18 +124,6 @@ st.set_page_config(page_title="기자재 관리 시스템", layout="wide")
 st.markdown("""
     <style>
     .printable-area { background-color: #ffffff; padding: 25px; border: 1px solid #ddd; border-radius: 8px; margin: 20px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    @media print {
-        @page { size: A4; margin: 10mm; }
-        /* Streamlit 기본 UI 요소들 숨기기 */
-        [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"], .stButton, footer { display: none !important; }
-        .stApp { background-color: white !important; }
-        /* 본문 영역 여백 초기화 및 풀사이즈 적용 */
-        .stMainBlockContainer { padding-top: 0 !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
-        .printable-area { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
-        table { border-collapse: collapse; width: 100%; border: 2px solid black !important; }
-        th, td { border: 1px solid black !important; padding: 10px !important; font-size: 11pt !important; color: black !important; }
-        th { background-color: #e0e0e0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -465,7 +452,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (A4 인쇄 백지 오류 수정 + 품목 3열 배치) ---
+# --- 3. 대여 신청 현황 (팝업 기반 완벽한 A4 인쇄 + 접수처 푸터 구현) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -557,51 +544,129 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
                         
-                        # ✨ CSS Grid를 적용하여 품목을 3열(1fr 1fr 1fr)로 컴팩트하게 나눕니다.
-                        html_content = f"""<div class='printable-area'>
-                        <h1 style='text-align:center; margin-bottom:20px; font-size:26px;'>글로벌예술학부 기자재 대여 신청서</h1>
-                        <table style='width:100%; border-collapse:collapse; border:2px solid black; font-size:14px;'>
-                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; width:15%; text-align:center;'>신청ID</th><td colspan='3' style='border:1px solid black; padding:10px; font-weight:bold; color:#004b87;'>{p_first['신청ID']}</td></tr>
-                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; width:15%; text-align:center;'>성명</th><td style='border:1px solid black; padding:10px; width:35%;'>{p_first['이름']}</td><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; width:15%; text-align:center;'>학번</th><td style='border:1px solid black; padding:10px; width:35%;'>{p_first['학번']}</td></tr>
-                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>연락처</th><td style='border:1px solid black; padding:10px;'>{p_first['연락처']}</td><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>담당교수</th><td style='border:1px solid black; padding:10px;'>{p_first['담당교수']}</td></tr>
-                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>교과명</th><td style='border:1px solid black; padding:10px;'>{p_first['교과명']}</td><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>촬영장소</th><td style='border:1px solid black; padding:10px;'>{p_first['촬영장소']}</td></tr>
-                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여기간</th><td colspan='3' style='border:1px solid black; padding:10px;'><b>{p_first['대여날짜']}</b> ~ <b>{p_first['반납일자']}</b></td></tr>
-                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여 품목<br><span style='font-size:0.8em; font-weight:normal; color:#555;'>(총 {total_items}대)</span></th><td colspan='3' style='border:1px solid black; padding:10px;'><div style='display:grid; grid-template-columns:1fr 1fr 1fr; column-gap:8px; row-gap:8px;'>{items_html_str}</div></td></tr>
-                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>기타 기자재</th><td colspan='3' style='border:1px solid black; padding:10px;'>{p_first['기타기자재']}</td></tr>
-                        </table>
-                        <div style='margin-top:20px; font-size:12px; line-height:1.6; text-align:left; border:1px solid #000; padding:15px;'>
-                        <p style='font-weight:bold; margin:0 0 5px 0;'>◎ 준수사항</p>
-                        <ol style='margin:0 0 10px 0; padding-left:20px;'>
-                        <li><b>기자재 이용 규정을 숙지 및 준수해야 함</b></li>
-                        <li><b>책임사항:</b> 사용자의 부주의로 인한 기자재의 손상, 분실에 대해서는 사용자가 복구, 또는 변상해야 합니다. 반납 시 기자재의 이상유무를 확인 받으시기 바랍니다.</li>
-                        <li><b>금지사항:</b> 강의 및 실습 이외의 개인적인 용도의 사용</li>
-                        <li><b>관련자료제출:</b></li>
-                        </ol>
-                        <p style='font-weight:bold; margin:10px 0 5px 0;'>◎ 연체 및 책임사항 불이행에 대한 조치</p>
-                        <ol style='margin:0; padding-left:20px;'>
-                        <li><b>장기간의 연체, 손상 및 분실에 대한 복구 또는 변상 불이행:</b> 반납 시까지 또는 복구 및 변상 완료 시까지 제 급여의 지급 보류, 제증명 발급 보류, 학위증서의 전달이 보류될 수 있습니다.</li>
-                        <li><b>용도 이외의 사용:</b> 이후 기자재 대여 금함.</li>
-                        </ol>
-                        </div>
-                        <div style='margin-top:20px; text-align:center; font-size:15px; font-weight:bold;'>
-                        <p>위의 준수사항을 수락하며 기자재의 대여를 신청합니다.</p>
-                        </div>
-                        <div style='margin-top:40px; text-align:center; font-size:14px;'>
-                        <span style='margin-right:20px;'>20</span><span style='margin-right:20px;'>년</span><span style='margin-right:20px;'>월</span><span>일</span>
-                        </div>
-                        <div style='margin-top:30px; text-align:right; font-size:14px; padding-right:50px;'>
-                        <p style='margin-bottom:15px;'>신청인 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
-                        <p>승인자 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
-                        </div>
-                        </div>"""
+                        # ✨ Streamlit 화면 렌더링용 미리보기 마크다운
+                        st.markdown("<div class='printable-area'>위 선택한 신청서가 아래 버튼을 통해 A4 서식으로 출력됩니다. (팝업 차단을 해제해 주세요)</div>", unsafe_allow_html=True)
                         
-                        html_content_safe = html_content.replace("\n", "")
-                        st.markdown(html_content_safe, unsafe_allow_html=True)
+                        # ✨ 화면에는 표시되지 않지만, JS가 읽어갈 완벽한 A4 데이터 (id 부여)
+                        # 1번 이미지(접수처/CAU 로고)를 HTML로 완벽히 복제하여 포함시켰습니다.
+                        html_content = f"""
+                        <div id='print-source-data' style='display:none;'>
+                            <h1 style='text-align:center; margin-bottom:30px; font-size:28px;'>글로벌예술학부 기자재 대여 신청서</h1>
+                            <table style='width:100%; border-collapse:collapse; border:2px solid black; font-size:14px;'>
+                                <tr>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; width:15%; text-align:center;'>신청ID</th>
+                                    <td colspan='3' style='border:1px solid black; padding:10px; font-weight:bold; color:#004b87;'>{p_first['신청ID']}</td>
+                                </tr>
+                                <tr>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; width:15%; text-align:center;'>성명</th>
+                                    <td style='border:1px solid black; padding:10px; width:35%;'>{p_first['이름']}</td>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; width:15%; text-align:center;'>학번</th>
+                                    <td style='border:1px solid black; padding:10px; width:35%;'>{p_first['학번']}</td>
+                                </tr>
+                                <tr>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>연락처</th>
+                                    <td style='border:1px solid black; padding:10px;'>{p_first['연락처']}</td>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>담당교수</th>
+                                    <td style='border:1px solid black; padding:10px;'>{p_first['담당교수']}</td>
+                                </tr>
+                                <tr>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>교과명</th>
+                                    <td style='border:1px solid black; padding:10px;'>{p_first['교과명']}</td>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>촬영장소</th>
+                                    <td style='border:1px solid black; padding:10px;'>{p_first['촬영장소']}</td>
+                                </tr>
+                                <tr>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여기간</th>
+                                    <td colspan='3' style='border:1px solid black; padding:10px;'><b>{p_first['대여날짜']}</b> ~ <b>{p_first['반납일자']}</b></td>
+                                </tr>
+                                <tr>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여 품목<br><span style='font-size:0.8em; font-weight:normal; color:#555;'>(총 {total_items}대)</span></th>
+                                    <td colspan='3' style='border:1px solid black; padding:10px;'>
+                                        <div style='display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;'>{items_html_str}</div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>기타 기자재</th>
+                                    <td colspan='3' style='border:1px solid black; padding:10px;'>{p_first['기타기자재']}</td>
+                                </tr>
+                            </table>
+                            <div style='margin-top:20px; font-size:12px; line-height:1.6; text-align:left; border:1px solid #000; padding:15px;'>
+                                <p style='font-weight:bold; margin:0 0 5px 0;'>◎ 준수사항</p>
+                                <ol style='margin:0 0 10px 0; padding-left:20px;'>
+                                    <li><b>기자재 이용 규정을 숙지 및 준수해야 함</b></li>
+                                    <li><b>책임사항:</b> 사용자의 부주의로 인한 기자재의 손상, 분실에 대해서는 사용자가 복구, 또는 변상해야 합니다. 반납 시 기자재의 이상유무를 확인 받으시기 바랍니다.</li>
+                                    <li><b>금지사항:</b> 강의 및 실습 이외의 개인적인 용도의 사용</li>
+                                    <li><b>관련자료제출:</b></li>
+                                </ol>
+                                <p style='font-weight:bold; margin:10px 0 5px 0;'>◎ 연체 및 책임사항 불이행에 대한 조치</p>
+                                <ol style='margin:0; padding-left:20px;'>
+                                    <li><b>장기간의 연체, 손상 및 분실에 대한 복구 또는 변상 불이행:</b> 반납 시까지 또는 복구 및 변상 완료 시까지 제 급여의 지급 보류, 제증명 발급 보류, 학위증서의 전달이 보류될 수 있습니다.</li>
+                                    <li><b>용도 이외의 사용:</b> 이후 기자재 대여 금함.</li>
+                                </ol>
+                            </div>
+                            <div style='margin-top:20px; text-align:center; font-size:15px; font-weight:bold;'>
+                                <p>위의 준수사항을 수락하며 기자재의 대여를 신청합니다.</p>
+                            </div>
+                            <div style='margin-top:30px; text-align:center; font-size:14px;'>
+                                <span style='margin-right:20px;'>20</span><span style='margin-right:20px;'>년</span><span style='margin-right:20px;'>월</span><span>일</span>
+                            </div>
+                            <div style='margin-top:30px; text-align:right; font-size:15px; padding-right:50px;'>
+                                <p style='margin-bottom:15px;'>신청인 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
+                                <p>승인자 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
+                            </div>
+                            
+                            <div style='margin-top: 50px; border-top: 2px dashed #000; padding-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; font-family: "Malgun Gothic", sans-serif;'>
+                                <div style='text-align: left; line-height: 1.4;'>
+                                    <p style='margin: 0; font-size: 14px; font-weight: 800;'>다빈치캠퍼스 신청서 접수 및 문의</p>
+                                    <p style='margin: 8px 0 0 0; font-size: 16px; font-weight: 500;'>1. e-mail: nalsound@cau.ac.kr &nbsp;&nbsp;&nbsp;&nbsp; 2. FAX: 031)675-7157 &nbsp;&nbsp;&nbsp;&nbsp; 이창호 (내선 3352)</p>
+                                    <p style='margin: 5px 0 0 0; font-size: 28px; font-weight: 600; letter-spacing: -1px;'>예술대학 글로벌예술학부 &nbsp;<span style='font-weight: 300; font-size:26px;'>|</span>&nbsp; 805관 6101호</p>
+                                </div>
+                                <div style='text-align: right; padding-bottom: 5px;'>
+                                    <h1 style='margin: 0; font-size: 48px; color: #0056a9; font-weight: 900; font-style: italic; font-family: "Arial Black", sans-serif; letter-spacing: -2px;'>CAU</h1>
+                                </div>
+                            </div>
+                        </div>
+                        """
+                        st.markdown(html_content, unsafe_allow_html=True)
                         
-                        # ✨ 핵심 버그 픽스: window.parent.print()를 사용해 독립된 iframe이 아닌 전체 웹페이지를 출력하도록 수정
-                        st.components.v1.html("""
-                            <button onclick="window.parent.print()" style="padding:12px 24px; font-size:16px; font-weight:bold; cursor:pointer; background-color:#2e7d32; color:white; border:none; border-radius:8px; width:100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🖨️ 해당 신청서 A4 용지 인쇄하기 (Ctrl+P)</button>
-                        """, height=60)
+                        # ✨ 자바스크립트를 이용해 숨겨진 html 내용을 새 창(팝업)에 띄우고 인쇄하도록 처리 (스트림릿 레이아웃이 섞이는 문제 완벽 차단)
+                        js_print_script = """
+                        <div>
+                            <button onclick="triggerPrint()" style="padding:12px 24px; font-size:16px; font-weight:bold; cursor:pointer; background-color:#2e7d32; color:white; border:none; border-radius:8px; width:100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🖨️ 해당 신청서 A4 용지 인쇄하기 (Ctrl+P)</button>
+                        </div>
+                        <script>
+                            function triggerPrint() {
+                                // 부모 문서(Streamlit 전체 화면)에서 데이터 HTML 추출
+                                const printData = window.parent.document.getElementById('print-source-data').innerHTML;
+                                
+                                // 새 창 열기 (인쇄 전용 팝업)
+                                const printWindow = window.open('', '_blank', 'width=900,height=1000');
+                                
+                                // 새 창에 문서 작성 (CSS 스타일 포함)
+                                printWindow.document.write('<html><head><title>기자재 대여 신청서 인쇄</title>');
+                                printWindow.document.write('<style>');
+                                printWindow.document.write('@page { size: A4; margin: 15mm; }');
+                                printWindow.document.write('body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; color: #000; background-color: #fff; margin: 0; padding: 0; }');
+                                printWindow.document.write('table { border-collapse: collapse; width: 100%; border: 2px solid black; }');
+                                printWindow.document.write('th, td { border: 1px solid black; padding: 10px; }');
+                                printWindow.document.write('</style>');
+                                printWindow.document.write('</head><body>');
+                                printWindow.document.write(printData);
+                                printWindow.document.write('</body></html>');
+                                
+                                // 문서 닫고 포커스 후 인쇄 다이얼로그 호출
+                                printWindow.document.close();
+                                printWindow.focus();
+                                
+                                // 브라우저가 화면을 렌더링할 약간의 딜레이 확보
+                                setTimeout(function() {
+                                    printWindow.print();
+                                    printWindow.close();
+                                }, 300);
+                            }
+                        </script>
+                        """
+                        st.components.v1.html(js_print_script, height=70)
 
 # --- 4. 품목별 대여 통계 ---
 elif menu == "품목별 대여 통계":
@@ -666,7 +731,6 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
     st.subheader("🛠️ 장비 상태 일괄/수동 변경")
     st.caption("💡 표 안의 **'현재상태 ✏️'** 또는 **'자산번호 ✏️'** 칸을 더블클릭하면 데이터를 바로 수정할 수 있습니다.")
     
-    # ✨ 기자재자산번호를 현재상태 바로 옆에 배치
     cols_order = ["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"]
     
     edited_equip_df = st.data_editor(
