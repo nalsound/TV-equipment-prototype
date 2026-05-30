@@ -165,9 +165,18 @@ else:
 is_admin = st.session_state.admin_auth
 st.sidebar.markdown("---")
 
-# ✨ 메뉴 동적 구성 (관리자 모드일 때만 '장비 관리' 메뉴 추가)
-menu_options = ["공지사항", "기자재 이용 규정", "장비 목록 조회", "품목별 대여 통계", "대여 신청 현황", "신규 대여 신청", "기자재 반납 처리"]
+# ✨ 메뉴 동적 구성 (요청하신 순서 및 관리자 전용 메뉴 반영)
+menu_options = [
+    "공지사항", 
+    "기자재 이용 규정", 
+    "장비 목록 조회", 
+    "신규 대여 신청", 
+    "대여 신청 현황", 
+    "품목별 대여 통계"
+]
+
 if is_admin:
+    menu_options.append("기자재 반납 처리")
     menu_options.append("⚙️ 장비 관리 (관리자 전용)")
 
 menu = st.sidebar.radio("📌 메뉴 선택", menu_options)
@@ -223,7 +232,7 @@ elif menu == "기자재 이용 규정":
       2. 연출자 신청서 제출(기자재실 담당교수 서명 포함)
     * **대여 당일:** 연출자와 촬영자가 가자재실을 함께 방문하여 대여 (*기자재 이상 유무 확인 철저)
     * **반납 당일:** 연출자와 촬영자가 기자재실을 함께 방문하여 반납 (*기자재 이상 유무 및 기자재 정리상태 확인)
-    * 글로벌예술학부의 타 전공(실용음악/게임 콘텐츠 애니메이션) 학생은 일주일 전 1/2학년 대상의 기자재를 대여 할 수 있다.
+    * 글로벌예술학부의 타 전공(실용음악/게임 콘텐츠 애니메이션) 학생은 일주일 전 1/2학년 대상의 기자재를 대여 할 수 대여 할 수 있다.
 
     **제7조 【기자재 대여 자격】**
     * 학과 및 학년에 따른 기자재 운용능력을 고려하여 기자재 대여 자격을 순차적으로 부여한다.
@@ -314,164 +323,7 @@ elif menu == "장비 목록 조회":
     display_df = df_equip[df_equip["현재상태"] == "대여가능"].copy() if filter_option == "대여 가능 장비만 보기" else df_equip.copy()
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-# --- ✨ 1-2. 품목별 대여 통계 (신규 추가) ---
-elif menu == "품목별 대여 통계":
-    st.header("📈 품목별 대여 통계")
-    
-    # 빈 칸("")이 아닌 실제 대여 기록만 필터링합니다.
-    valid_rentals = df_rental[df_rental["품명"] != ""]
-    
-    if valid_rentals.empty:
-        st.info("💡 아직 누적된 대여 기록이 없어 통계를 산출할 수 없습니다.")
-    else:
-        st.markdown("학생들이 가장 많이 대여한 인기 기자재 순위를 확인하세요!")
-        stats_df = valid_rentals.groupby(["품명", "규격"]).size().reset_index(name="누적 대여 횟수")
-        stats_df = stats_df.sort_values(by="누적 대여 횟수", ascending=False).reset_index(drop=True)
-        
-        col1, col2 = st.columns([1, 1.5])
-        with col1:
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
-        with col2:
-            # 시각화 차트 제공
-            st.bar_chart(stats_df.set_index("규격")["누적 대여 횟수"])
-
-# --- ✨ 1-3. 장비 관리 (관리자 전용) ---
-elif menu == "⚙️ 장비 관리 (관리자 전용)":
-    if not is_admin:
-        st.warning("접근 권한이 없습니다. 사이드바에서 로그인해주세요.")
-        st.stop()
-        
-    st.header("⚙️ 장비 일괄 관리 및 신규 등록")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("🛠️ 장비 상태 일괄/수동 변경")
-        st.caption("💡 표 안의 **'현재상태 ✏️'** 칸을 더블클릭하면 엑셀처럼 여러 장비의 상태를 바로바로 수정할 수 있습니다.")
-        
-        edited_equip_df = st.data_editor(
-            df_equip,
-            column_config={
-                "장비ID": st.column_config.TextColumn("장비ID", disabled=True),
-                "품명": st.column_config.TextColumn("품명", disabled=True),
-                "규격": st.column_config.TextColumn("규격", disabled=True),
-                "비고": st.column_config.TextColumn("비고", disabled=True),
-                "현재상태": st.column_config.SelectboxColumn(
-                    "현재상태 ✏️",
-                    help="클릭하여 장비의 상태를 변경하세요",
-                    options=["대여가능", "대여중", "고장", "수리중", "승인대기"],
-                    required=True
-                )
-            },
-            hide_index=True,
-            use_container_width=True,
-            height=300
-        )
-
-        if st.button("💾 변경된 상태 한 번에 저장하기", type="primary"):
-            if not df_equip.equals(edited_equip_df):
-                df_equip = edited_equip_df.copy()
-                save_data(df_equip, df_rental)
-                st.success("✅ 장비 상태가 성공적으로 일괄 업데이트되었습니다!")
-                st.rerun()
-            else:
-                st.info("💡 변경된 장비 상태가 없습니다.")
-                
-    with col2:
-        st.subheader("➕ 신규 기자재 추가 등록")
-        with st.form("add_equipment_form", clear_on_submit=True):
-            new_name = st.text_input("📦 품명 (예: 캠코더, 미러리스 카메라)")
-            new_spec = st.text_input("📐 규격 (예: PWX-Z90, Sony FX3)")
-            new_remarks = st.text_input("📝 비고")
-            if st.form_submit_button("🚀 새 장비 등록하기"):
-                if not new_name.strip():
-                    st.error("❌ 품명은 필수 입력 항목입니다.")
-                else:
-                    prefix = "EQ-AUTO-"
-                    auto_ids = df_equip[df_equip["장비ID"].str.startswith(prefix, na=False)]
-                    new_num = f"{auto_ids['장비ID'].str.split('-').str[-1].astype(int).max() + 1:04d}" if not auto_ids.empty else "0001"
-                    generated_id = prefix + new_num
-                    new_equip_row = {"장비ID": generated_id, "품명": new_name.strip(), "규격": new_spec.strip() if new_spec.strip() else "-", "현재상태": "대여가능", "비고": new_remarks.strip() if new_remarks.strip() else "-"}
-                    df_equip = pd.concat([df_equip, pd.DataFrame([new_equip_row])], ignore_index=True)
-                    save_data(df_equip, df_rental)
-                    st.success(f"🎉 등록 성공! 자동 발급된 ID: [{generated_id}]")
-                    st.rerun()
-
-# --- 2. 대여 신청 현황 ---
-elif menu == "대여 신청 현황":
-    st.header("📋 기자재 대여 신청 현황")
-    if df_rental.empty or df_rental["품명"].iloc[0] == "":
-        st.info("현재 대여 및 대기 중인 신청 내역이 없습니다.")
-    else:
-        active_rentals_display = df_rental[~df_rental["승인상태"].isin(["반납완료", "승인거절"])]
-        display_rental = active_rentals_display.drop(columns=["학번", "연락처"], errors="ignore") if not is_admin else active_rentals_display.copy()
-        
-        st.caption("🔓 관리자 모드: 모든 신청인의 정보가 정상 노출됩니다." if is_admin else "🔒 학생들의 개인정보 보호를 위해 '학번' 및 '연락처'는 관리자 로그인 시에만 조회됩니다.")
-        st.dataframe(display_rental, use_container_width=True, hide_index=True)
-        st.markdown("---")
-
-        if is_admin:
-            st.subheader("🔓 관리자 전용 - 개별 대여 승인 및 거절 처리")
-            pending_rentals = df_rental[df_rental["승인상태"].str.strip().isin(["대기중", "승인대기", "대기"])].copy()
-            if pending_rentals.empty:
-                st.success("✅ 현재 승인 대기 중인 신청 품목이 없습니다.")
-            else:
-                st.markdown("**[ 대기 중인 상세 장비 목록 ] - 승인 또는 거절할 장비의 체크박스를 선택하세요.**")
-                select_all_pending = st.checkbox("☑️ 표 전체 선택 / 해제", key="select_all_pending")
-                pending_rentals.insert(0, "선택", select_all_pending)
-                edited_pending = st.data_editor(pending_rentals[["선택", "신청ID", "이름", "장비ID", "품명", "규격", "대여날짜", "반납일자"]], column_config={"선택": st.column_config.CheckboxColumn("선택", default=False)}, hide_index=True, use_container_width=True)
-                
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("⭕ 선택한 장비 승인하기", type="primary", use_container_width=True):
-                        selected_pending = edited_pending[edited_pending["선택"] == True]
-                        if not selected_pending.empty:
-                            target_ids = selected_pending["장비ID"].tolist()
-                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "대여중"
-                            df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여중"
-                            save_data(df_equip, df_rental)
-                            st.success(f"🎉 장비 {len(target_ids)}대의 대여가 개별 승인되었습니다.")
-                            st.rerun()
-                        else:
-                            st.warning("승인할 장비를 표에서 먼저 체크해주세요.")
-                with col_btn2:
-                    if st.button("❌ 선택한 장비 거절하기", use_container_width=True):
-                        selected_pending = edited_pending[edited_pending["선택"] == True]
-                        if not selected_pending.empty:
-                            target_ids = selected_pending["장비ID"].tolist()
-                            
-                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "승인거절"
-                            
-                            df_rental["학번"] = df_rental["학번"].astype(str)
-                            df_rental["연락처"] = df_rental["연락처"].astype(str)
-                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
-                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
-                            
-                            df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
-                            
-                            save_data(df_equip, df_rental)
-                            st.error(f"🚫 장비 {len(target_ids)}대의 대여가 거절되었으며, 개인정보가 파기되었습니다.")
-                            st.rerun()
-                        else:
-                            st.warning("거절할 장비를 표에서 먼저 체크해주세요.")
-            
-            st.markdown("---")
-            st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄")
-            # 빈 값이 아닌 실제 신청ID만 인쇄 목록에 표시
-            valid_rental_ids = df_rental[df_rental["신청ID"] != ""]["신청ID"].unique().tolist()
-            if not valid_rental_ids:
-                st.info("출력 가능한 대여 신청 내역이 없습니다.")
-            else:
-                selected_print_id = st.selectbox("🖨️ 출력 서류를 선택하세요", valid_rental_ids)
-                if selected_print_id:
-                    print_rows = df_rental[df_rental["신청ID"] == selected_print_id]
-                    if not print_rows.empty:
-                        p_first = print_rows.iloc[0]
-                        item_counts = print_rows.groupby(["품명", "규격"]).size().reset_index(name="수량")
-                        items_str = ", ".join([f"{r['품명']} ({r['규격']}) {r['수량']}대" for _, r in item_counts.iterrows()])
-                        html_content = f"""<div class="printable-area"><h1 style="text-align: center; margin-bottom: 30px;">글로벌예술학부 기자재 대여 신청서</h1><table><tr><th>신청ID</th><td colspan="3">{p_first['신청ID']}</td></tr><tr><th>성명</th><td>{p_first['이름']}</td><th>학번</th><td>{p_first['학번']}</td></tr><tr><th>연락처</th><td>{p_first['연락처']}</td><th>담당교수</th><td>{p_first['담당교수']}</td></tr><tr><th>교과명</th><td>{p_first['교과명']}</td><th>촬영장소</th><td>{p_first['촬영장소']}</td></tr><tr><th>대여기간</th><td colspan="3">{p_first['대여날짜']} ~ {p_first['반납일자']}</td></tr><tr><th>대여 품목</th><td colspan="3">{items_str}</td></tr><tr><th>기타 기자재</th><td colspan="3">{p_first['기타기자재']}</td></tr></table><div style="margin-top: 40px; text-align: right;"><p>위와 같이 기자재 대여를 신청합니다.</p><p>20  년   월   일</p><p>신청인 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p></div></div>"""
-                        st.markdown(html_content, unsafe_allow_html=True)
-                        st.components.v1.html("""<button onclick="window.print()" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background-color:#FF4B4B; color:white; border:none; border-radius:5px; width:100%;">🖨️ 해당 신청서 A4 용지 인쇄하기</button>""", height=50)
-
-# --- 3. 신규 대여 신청 ---
+# --- 2. 신규 대여 신청 ---
 elif menu == "신규 대여 신청":
     if st.session_state.get("submit_success"):
         st.success("🎉 대여 신청이 성공적으로 제출되었습니다! 관리자 승인을 기다려주세요.")
@@ -583,7 +435,6 @@ elif menu == "신규 대여 신청":
 
                         if stock_error: st.error("❌ 재고 변동 발생")
                         else:
-                            # 만약 df_rental이 깡통(빈 데이터)이었다면 기존 데이터를 무시하고 덮어씌웁니다.
                             if df_rental.empty or df_rental["품명"].iloc[0] == "":
                                 df_rental = pd.DataFrame(new_rows)
                             else:
@@ -595,37 +446,191 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 4. 기자재 반납 처리 ---
+# --- 3. 대여 신청 현황 ---
+elif menu == "대여 신청 현황":
+    st.header("📋 기자재 대여 신청 현황")
+    if df_rental.empty or df_rental["품명"].iloc[0] == "":
+        st.info("현재 대여 및 대기 중인 신청 내역이 없습니다.")
+    else:
+        active_rentals_display = df_rental[~df_rental["승인상태"].isin(["반납완료", "승인거절"])]
+        display_rental = active_rentals_display.drop(columns=["학번", "연락처"], errors="ignore") if not is_admin else active_rentals_display.copy()
+        
+        st.caption("🔓 관리자 모드: 모든 신청인의 정보가 정상 노출됩니다." if is_admin else "🔒 학생들의 개인정보 보호를 위해 '학번' 및 '연락처'는 관리자 로그인 시에만 조회됩니다.")
+        st.dataframe(display_rental, use_container_width=True, hide_index=True)
+        st.markdown("---")
+
+        if is_admin:
+            st.subheader("🔓 관리자 전용 - 개별 대여 승인 및 거절 처리")
+            pending_rentals = df_rental[df_rental["승인상태"].str.strip().isin(["대기중", "승인대기", "대기"])].copy()
+            if pending_rentals.empty:
+                st.success("✅ 현재 승인 대기 중인 신청 품목이 없습니다.")
+            else:
+                st.markdown("**[ 대기 중인 상세 장비 목록 ] - 승인 또는 거절할 장비의 체크박스를 선택하세요.**")
+                select_all_pending = st.checkbox("☑️ 표 전체 선택 / 해제", key="select_all_pending")
+                pending_rentals.insert(0, "선택", select_all_pending)
+                edited_pending = st.data_editor(pending_rentals[["선택", "신청ID", "이름", "장비ID", "품명", "규격", "대여날짜", "반납일자"]], column_config={"선택": st.column_config.CheckboxColumn("선택", default=False)}, hide_index=True, use_container_width=True)
+                
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("⭕ 선택한 장비 승인하기", type="primary", use_container_width=True):
+                        selected_pending = edited_pending[edited_pending["선택"] == True]
+                        if not selected_pending.empty:
+                            target_ids = selected_pending["장비ID"].tolist()
+                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "대여중"
+                            df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여중"
+                            save_data(df_equip, df_rental)
+                            st.success(f"🎉 장비 {len(target_ids)}대의 대여가 개별 승인되었습니다.")
+                            st.rerun()
+                        else:
+                            st.warning("승인할 장비를 표에서 먼저 체크해주세요.")
+                with col_btn2:
+                    if st.button("❌ 선택한 장비 거절하기", use_container_width=True):
+                        selected_pending = edited_pending[edited_pending["선택"] == True]
+                        if not selected_pending.empty:
+                            target_ids = selected_pending["장비ID"].tolist()
+                            
+                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "승인거절"
+                            
+                            df_rental["학번"] = df_rental["학번"].astype(str)
+                            df_rental["연락처"] = df_rental["연락처"].astype(str)
+                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
+                            df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
+                            
+                            df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
+                            
+                            save_data(df_equip, df_rental)
+                            st.error(f"🚫 장비 {len(target_ids)}대의 대여가 거절되었으며, 개인정보가 파기되었습니다.")
+                            st.rerun()
+                        else:
+                            st.warning("거절할 장비를 표에서 먼저 체크해주세요.")
+            
+            st.markdown("---")
+            st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄")
+            valid_rental_ids = df_rental[df_rental["신청ID"] != ""]["신청ID"].unique().tolist()
+            if not valid_rental_ids:
+                st.info("출력 가능한 대여 신청 내역이 없습니다.")
+            else:
+                selected_print_id = st.selectbox("🖨️ 출력 서류를 선택하세요", valid_rental_ids)
+                if selected_print_id:
+                    print_rows = df_rental[df_rental["신청ID"] == selected_print_id]
+                    if not print_rows.empty:
+                        p_first = print_rows.iloc[0]
+                        item_counts = print_rows.groupby(["품명", "규격"]).size().reset_index(name="수량")
+                        items_str = ", ".join([f"{r['품명']} ({r['규격']}) {r['수량']}대" for _, r in item_counts.iterrows()])
+                        html_content = f"""<div class="printable-area"><h1 style="text-align: center; margin-bottom: 30px;">글로벌예술학부 기자재 대여 신청서</h1><table><tr><th>신청ID</th><td colspan="3">{p_first['신청ID']}</td></tr><tr><th>성명</th><td>{p_first['이름']}</td><th>학번</th><td>{p_first['학번']}</td></tr><tr><th>연락처</th><td>{p_first['연락처']}</td><th>담당교수</th><td>{p_first['담당교수']}</td></tr><tr><th>교과명</th><td>{p_first['교과명']}</td><th>촬영장소</th><td>{p_first['촬영장소']}</td></tr><tr><th>대여기간</th><td colspan="3">{p_first['대여날짜']} ~ {p_first['반납일자']}</td></tr><tr><th>대여 품목</th><td colspan="3">{items_str}</td></tr><tr><th>기타 기자재</th><td colspan="3">{p_first['기타기자재']}</td></tr></table><div style="margin-top: 40px; text-align: right;"><p>위와 같이 기자재 대여를 신청합니다.</p><p>20  년   월   일</p><p>신청인 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p></div></div>"""
+                        st.markdown(html_content, unsafe_allow_html=True)
+                        st.components.v1.html("""<button onclick="window.print()" style="padding:10px 20px; font-size:16px; font-weight:bold; cursor:pointer; background-color:#FF4B4B; color:white; border:none; border-radius:5px; width:100%;">🖨️ 해당 신청서 A4 용지 인쇄하기</button>""", height=50)
+
+# --- 4. 품목별 대여 통계 ---
+elif menu == "품목별 대여 통계":
+    st.header("📈 품목별 대여 통계")
+    
+    valid_rentals = df_rental[df_rental["품명"] != ""]
+    
+    if valid_rentals.empty:
+        st.info("💡 아직 누적된 대여 기록이 없어 통계를 산출할 수 없습니다.")
+    else:
+        st.markdown("학생들이 가장 많이 대여한 인기 기자재 순위를 확인하세요!")
+        stats_df = valid_rentals.groupby(["품명", "규격"]).size().reset_index(name="누적 대여 횟수")
+        stats_df = stats_df.sort_values(by="누적 대여 횟수", ascending=False).reset_index(drop=True)
+        
+        col1, col2 = st.columns([1, 1.5])
+        with col1:
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        with col2:
+            st.bar_chart(stats_df.set_index("규격")["누적 대여 횟수"])
+
+# --- 5. 기자재 반납 처리 (관리자 전용 메뉴로 이동) ---
 elif menu == "기자재 반납 처리":
     st.header("🔄 기자재 반납 처리 (관리자 전용)")
-    if is_admin:
-        active_rentals = df_rental[df_rental["승인상태"] == "대여중"].copy()
-        if active_rentals.empty: st.info("✅ 현재 대여 중이어서 반납 처리할 장비가 없습니다.")
-        else:
-            st.markdown("**[ 대여 중인 상세 장비 목록 ] - 반납된 장비의 체크박스를 선택하세요.**")
-            select_all_return = st.checkbox("☑️ 표 전체 선택 / 해제", key="select_all_return")
-            active_rentals.insert(0, "선택", select_all_return)
-            edited_active = st.data_editor(active_rentals[["선택", "신청ID", "이름", "장비ID", "품명", "규격", "반납일자"]], column_config={"선택": st.column_config.CheckboxColumn("선택", default=False)}, hide_index=True, use_container_width=True)
-
-            if st.button("👍 선택한 장비 반납 확인", type="primary"):
-                selected_to_return = edited_active[edited_active["선택"] == True]
-                if not selected_to_return.empty:
-                    target_ids = selected_to_return["장비ID"].tolist()
-            
-                    df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "반납완료"
-                    
-                    df_rental["학번"] = df_rental["학번"].astype(str)
-                    df_rental["연락처"] = df_rental["연락처"].astype(str)
-                    
-                    df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
-                    df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
-
-                    df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
-                    
-                    save_data(df_equip, df_rental)
-                    st.success(f"✅ 장비 {len(target_ids)}대의 반납 처리 및 개인정보 파기가 완료되었습니다.")
-                    st.rerun()
-                else: 
-                    st.warning("반납 처리할 장비를 표에서 먼저 체크해주세요.")
+    active_rentals = df_rental[df_rental["승인상태"] == "대여중"].copy()
+    if active_rentals.empty: 
+        st.info("✅ 현재 대여 중이어서 반납 처리할 장비가 없습니다.")
     else:
-        st.warning("🔒 반납 처리는 관리자 전용 메뉴입니다. 사이드바에 비밀번호를 입력해주세요.")
+        st.markdown("**[ 대여 중인 상세 장비 목록 ] - 반납된 장비의 체크박스를 선택하세요.**")
+        select_all_return = st.checkbox("☑️ 표 전체 선택 / 해제", key="select_all_return")
+        active_rentals.insert(0, "선택", select_all_return)
+        edited_active = st.data_editor(active_rentals[["선택", "신청ID", "이름", "장비ID", "품명", "규격", "반납일자"]], column_config={"선택": st.column_config.CheckboxColumn("선택", default=False)}, hide_index=True, use_container_width=True)
+
+        if st.button("👍 선택한 장비 반납 확인", type="primary"):
+            selected_to_return = edited_active[edited_active["선택"] == True]
+            if not selected_to_return.empty:
+                target_ids = selected_to_return["장비ID"].tolist()
+        
+                df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "반납완료"
+                
+                df_rental["학번"] = df_rental["학번"].astype(str)
+                df_rental["연락처"] = df_rental["연락처"].astype(str)
+                
+                df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
+                df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
+
+                df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
+                
+                save_data(df_equip, df_rental)
+                st.success(f"✅ 장비 {len(target_ids)}대의 반납 처리 및 개인정보 파기가 완료되었습니다.")
+                st.rerun()
+            else: 
+                st.warning("반납 처리할 장비를 표에서 먼저 체크해주세요.")
+
+# --- 6. 장비 관리 (관리자 전용) ---
+elif menu == "⚙️ 장비 관리 (관리자 전용)":
+    if not is_admin:
+        st.warning("접근 권한이 없습니다. 사이드바에서 로그인해주세요.")
+        st.stop()
+        
+    st.header("⚙️ 장비 일괄 관리 및 신규 등록")
+    
+    st.subheader("🛠️ 장비 상태 일괄/수동 변경")
+    st.caption("💡 표 안의 **'현재상태 ✏️'** 칸을 더블클릭하면 엑셀처럼 여러 장비의 상태를 바로바로 수정할 수 있습니다.")
+    
+    # 표 창 크기를 600으로 넓힘
+    edited_equip_df = st.data_editor(
+        df_equip,
+        column_config={
+            "장비ID": st.column_config.TextColumn("장비ID", disabled=True),
+            "품명": st.column_config.TextColumn("품명", disabled=True),
+            "규격": st.column_config.TextColumn("규격", disabled=True),
+            "비고": st.column_config.TextColumn("비고", disabled=True),
+            "현재상태": st.column_config.SelectboxColumn(
+                "현재상태 ✏️",
+                help="클릭하여 장비의 상태를 변경하세요",
+                options=["대여가능", "대여중", "고장", "수리중", "승인대기"],
+                required=True
+            )
+        },
+        hide_index=True,
+        use_container_width=True,
+        height=600  
+    )
+
+    if st.button("💾 변경된 상태 한 번에 저장하기", type="primary"):
+        if not df_equip.equals(edited_equip_df):
+            df_equip = edited_equip_df.copy()
+            save_data(df_equip, df_rental)
+            st.success("✅ 장비 상태가 성공적으로 일괄 업데이트되었습니다!")
+            st.rerun()
+        else:
+            st.info("💡 변경된 장비 상태가 없습니다.")
+            
+    st.markdown("---")
+    
+    # 신규 기자재 추가 등록을 하단으로 배치
+    st.subheader("➕ 신규 기자재 추가 등록")
+    with st.form("add_equipment_form", clear_on_submit=True):
+        new_name = st.text_input("📦 품명 (예: 캠코더, 미러리스 카메라)")
+        new_spec = st.text_input("📐 규격 (예: PWX-Z90, Sony FX3)")
+        new_remarks = st.text_input("📝 비고")
+        if st.form_submit_button("🚀 새 장비 등록하기"):
+            if not new_name.strip():
+                st.error("❌ 품명은 필수 입력 항목입니다.")
+            else:
+                prefix = "EQ-AUTO-"
+                auto_ids = df_equip[df_equip["장비ID"].str.startswith(prefix, na=False)]
+                new_num = f"{auto_ids['장비ID'].str.split('-').str[-1].astype(int).max() + 1:04d}" if not auto_ids.empty else "0001"
+                generated_id = prefix + new_num
+                new_equip_row = {"장비ID": generated_id, "품명": new_name.strip(), "규격": new_spec.strip() if new_spec.strip() else "-", "현재상태": "대여가능", "비고": new_remarks.strip() if new_remarks.strip() else "-"}
+                df_equip = pd.concat([df_equip, pd.DataFrame([new_equip_row])], ignore_index=True)
+                save_data(df_equip, df_rental)
+                st.success(f"🎉 등록 성공! 자동 발급된 ID: [{generated_id}]")
+                st.rerun()
