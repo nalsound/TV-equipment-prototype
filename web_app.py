@@ -15,10 +15,10 @@ from PIL import Image
 EQUIPMENT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1DkU-1hCQuTApnnFxfZAh1MXulrD6HxPHY4P1QjhqJq0/edit?gid=1121757229#gid=1121757229"
 RENTAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hV8oaUlEIEA4rF6peg083Td_1cNZbWbl6BCcEkRpkT8/edit?gid=183591911#gid=183591911"
 
-# --- 공지사항 경로 설정 ---
+# --- 공지사항 및 PDF 경로 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
-PDF_FILE_NAME = "촬영용기자재_230309_사진.pdf" # ✨ 추가된 PDF 파일 이름 설정
+PDF_FILE_NAME = "촬영용기자재_230309_사진.pdf"
 
 DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
 
@@ -44,7 +44,7 @@ DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 �
 우리 모두의 소중한 기자재입니다. 안전하고 올바른 이용을 부탁드립니다. 감사합니다."""
 
 def load_data():
-    """구글 스프레드시트에서 데이터를 불러옵니다. 이제 이미지URL 열도 완벽히 관리합니다."""
+    """구글 스프레드시트에서 데이터를 불러옵니다."""
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         
@@ -139,7 +139,6 @@ if st.sidebar.button("🔄 최신 데이터 새로고침", help="구글 시트�
     st.rerun()
 st.sidebar.markdown("---")
 
-# ✨ PDF 메뉴가 추가되었습니다.
 menu_options = [
     "공지사항", 
     "기자재 이용 규정", 
@@ -171,8 +170,92 @@ if menu == "공지사항":
 
 # --- 0-1. 기자재 이용 규정 ---
 elif menu == "기자재 이용 규정":
-    st.header("📜 기자재 이용 규정")
-    st.markdown("규정 내용을 숙지해 주세요. (생략)")
+    st.header("📜 TV방송연예전공 기자재 이용 규정")
+    st.markdown("""
+    ---
+    **제1조 【목 적】**
+    기자재를 이용하는 학생들의 건전한 이용문화 정착과 기자재의 지속적인 유지 및 관리를 위한 체계를 만드는데 그 목적이 있다.
+
+    **제2조 【기자재 이용 목적】**
+    기자재는 수업, 글로벌예술학부 워크샵, 과제 및 스터디 모임을 위한 목적으로 이용가능하다.
+    * 영리를 목적으로 하는 개인 프로젝트를 위한 사용은 불가하다.
+
+    **제3조 【기자재 이용 대상】**
+    1. 연출자, 촬영자, 녹음자가 본교에 재학 중인 학생을 기자재 이용 대상으로한다.
+    2. 본교 재학생이더라도 기자재 운용능력이 부족한 학생 및 기자재 관리에 대한 이해가 부족한 학생은 기자재 담당 및 조교의 판단 하에 이용 대상에서 제외된다.
+    3. 기자재 교육을 받지 못한 학생은 이용 대상에서 제외된다.
+    4. 본교의 졸업생, 휴학생의 장비사용규정은 제15조를 참고하도록한다.
+
+    **제4조 【기자재 관리 책임】**
+    기자재의 관리 및 총 책임은 1차적으로 연출자에게 있다. 
+    하지만, 장비의 이상 유무를 확인하지 않아서 생기는 불이익과 배상에 대한 책임은 연출자와 촬영자 모두에게 있다. 
+    단, 배상에 대한 책임과 절차는 해당 팀 내에서 자체적으로 결정한다.
+
+    **제5조 【기자재 이용 가능일】**
+    * 학기/방학 중 이용 가능요일 
+      * 대여 : 월~금
+      * 반납 및 신청서 접수 : 월~금
+    * 대여기간은 대여일을 포함하여 최대 7일까지 가능하다.
+    * 수업 실습으로 인한 기자재 대여는 매학기 일정에 맞춰 대여가 가능하다.
+    * 제14조에 해당하는 스터디 모임은 월~금 중에도 대여가 가능하다.
+
+    **제6조 【기자재 이용 절차】**
+    * **대여 (일주일 전):** 1. 기자재실 홈페이지 신청(연출자신청, 기자재 교육 수료자만 신청가능)
+      2. 연출자 신청서 제출(기자재실 담당교수 서명 포함)
+    * **대여 당일:** 연출자와 촬영자가 가자재실을 함께 방문하여 대여 (*기자재 이상 유무 확인 철저)
+    * **반납 당일:** 연출자와 촬영자가 기자재실을 함께 방문하여 반납 (*기자재 이상 유무 및 기자재 정리상태 확인)
+    * 글로벌예술학부의 타 전공(실용음악/게임 콘텐츠 애니메이션) 학생은 일주일 전 1/2학년 대상의 기자재를 대여 할 수 대여 할 수 있다.
+
+    **제7조 【기자재 대여 자격】**
+    * 학과 및 학년에 따른 기자재 운용능력을 고려하여 기자재 대여 자격을 순차적으로 부여한다.
+    * 카메라는 기본적으로 한 팀당 한 대만 대여가 가능하다.
+    * 악세사리는 해당 주용 기자재 대여 시에만 대여한다.(단독으로 대여하지 않는다.)
+
+    **제8조 【보충촬영】**
+    * 보충 촬영으로 인한 기자재 대여는 본교의 기자재 내규를 동일하게 따른다.
+
+    **제9조 【기자재 대여 제한】**
+    1. 신청 절차 및 규정을 지키지 않은 경우.
+    2. 대여 당일 연출자나 촬영자가 참석하지 않은 경우.
+    3. 대여 당일 시간을 지키지 않은 경우.
+    4. 연출자 및 메인 스텝의 기자재 운용 능력이 부족하다고 판단되는 경우.
+    5. 기자재 담당 교수의 승인 없이 경제적 이익을 목적으로 하는 프로젝트인 경우.
+    6. 연출자가 본교 학생이 아닌 경우.
+    (단, 촬영자에 한해서 본교의 졸업생인 경우 전임 교수 승인 하에 가능)
+    8. 기자재를 신청하거나 이용하는 학생이 징계 중인 학생인 경우.
+
+    **제10조 【기자재 파손 및 분실 보상 절차】**
+    1. 기자재 담당에게 해당 내용 보고.
+    2. 연출자는 손망실 보고서를 작성하여 기자재 담당에게 제출 후 해당 장비 보상.
+    3. 당시 정황을 따져 징계수위 결정 후 책임자에게 징계내용 통보.
+    * 보상 기간은 기본적으로 보상에 대한 내용이 책임자에게 전달 된 날부터 일주일 이내로 한다.
+
+    **제11조 【징 계】**
+    기자재를 이용하는 학생이 내규를 위반 할 경우 기자재 담당자는 해당 학생에게 징계 할 수 있다.
+    * **경징계:** 대여 및 반납 시간을 미준수한 경우, 당일 참석하지 않은 경우 등
+    * **중징계:** 장비의 파손 및 분실을 발생시킨 경우, 이해가 부족한 행위를 한 경우 등 (강제 반납조치 가능)
+
+    **제12조 【징계 수위】**
+    1. 장비 강제 반납조치
+    2. 장비사용제한
+       * 경징계 : 최대 14일 이하의 장비사용제한 후 기간이 지나면 회복.
+       * 중징계 : 최대 30일 이하의 장비사용제한 후 기간이 지나면 회복.
+
+    **제13조 【스터디 모임】**
+    1. 기자재 담당 교수님의 승인을 얻은 모임.
+    2. 온라인 학부 카페나 교내 게시판을 통해 목적과 취지가 홍보가 된 모임.
+    3. 해당 스터디 내용이 최소 일주일 전에 담당교수와 기자재 담당자에게 공지 된 모임.
+
+    **제14조 【스터디 모임 장비책임자】**
+    스터디 모임의 장비책임자는 그 모임을 이끄는 스터디 팀장에게 있다.
+
+    **제15조 【졸업생 및 휴학생의 장비 사용】**
+    1. 재학생의 장비사용 일정을 우선으로 한다.
+    2. 전임교수의 장비사용 승인을 필수로 한다.
+    3. 본교의 장비가 사용된 작품은 본교의 제작지원을 크레딧에 명시하도록 한다.
+    4. 본교의 장비가 사용된 작품은 해당년도 글로벌예술학부 영화제에 필히 상영하도록 한다.
+    ---
+    """)
 
 # --- 0-2. 공식 기자재 사진 명세서 (PDF) ---
 elif menu == "📸 공식 기자재 사진 명세서(PDF)":
@@ -186,7 +269,6 @@ elif menu == "📸 공식 기자재 사진 명세서(PDF)":
             pdf_bytes = f.read()
             base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
         
-        # 1. 다운로드 버튼 제공
         st.download_button(
             label="📥 PDF 파일 다운로드",
             data=pdf_bytes,
@@ -196,13 +278,12 @@ elif menu == "📸 공식 기자재 사진 명세서(PDF)":
         )
         st.markdown("---")
         
-        # 2. 브라우저 내장 PDF 뷰어 띄우기
         pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
         st.markdown(pdf_display, unsafe_allow_html=True)
     else:
         st.error(f"❌ PDF 파일을 찾을 수 없습니다. `{PDF_FILE_NAME}` 파일이 파이썬 실행 폴더 안에 있는지 확인해주세요.")
 
-# --- 1. 장비 목록 조회 ---
+# --- 1. 장비 목록 조회 (사진 미리보기 제거됨) ---
 elif menu == "장비 목록 조회":
     st.header("🔍 기자재 목록 조회")
     st.subheader("📊 품목별 보유 현황 (수량 요약)")
@@ -221,32 +302,16 @@ elif menu == "장비 목록 조회":
                 대여가능=("현재상태", lambda x: (x == "대여가능").sum()),
                 승인대기=("현재상태", lambda x: (x == "승인대기").sum()),
                 대여중=("현재상태", lambda x: (x == "대여중").sum()),
-                점검및고장=("현재상태", lambda x: x.isin(["고장", "수리중"]).sum()),
-                이미지URL=("이미지URL", lambda x: next((u for u in x if str(u).strip() and str(u).strip().lower() not in ["nan", "none", "<na>"] and (str(u).startswith("http") or str(u).startswith("data:"))), ""))
+                점검및고장=("현재상태", lambda x: x.isin(["고장", "수리중"]).sum())
             ).reset_index()
         )
         
-        def get_final_image_url(row):
-            val = str(row["이미지URL"]).strip()
-            if val.startswith("http") or val.startswith("data:"):
-                return val
-            encoded_spec = str(row["규격_clean"]).replace(" ", "+")
-            return f"https://via.placeholder.com/150/EAEAEA/333333?text={encoded_spec}"
-
-        df_summary["사진"] = df_summary.apply(get_final_image_url, axis=1)
-        
         df_summary = df_summary.rename(columns={"품명_clean": "품명", "규격_clean": "규격"})
-        cols = ["사진", "품명", "규격", "총보유수량", "대여가능", "승인대기", "대여중", "점검및고장"]
+        cols = ["품명", "규격", "총보유수량", "대여가능", "승인대기", "대여중", "점검및고장"]
         df_summary = df_summary[cols]
         
-        st.dataframe(
-            df_summary, 
-            column_config={
-                "사진": st.column_config.ImageColumn("미리보기", help="구글 시트에 등록된 사진")
-            },
-            use_container_width=True, 
-            hide_index=True
-        )
+        # 🚫 미리보기(사진) 설정을 빼고 아주 깔끔하게 표만 띄웁니다.
+        st.dataframe(df_summary, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     st.subheader("📋 개별 장비 상세 현황")
@@ -385,11 +450,38 @@ elif menu == "대여 신청 현황":
 elif menu == "품목별 대여 통계":
     st.header("📈 품목별 대여 통계")
     valid_rentals = df_rental[df_rental["품명"] != ""].copy()
-    if not valid_rentals.empty:
+    if valid_rentals.empty:
+        st.info("💡 아직 누적된 대여 기록이 없어 통계를 산출할 수 없습니다.")
+    else:
+        st.markdown("학생들이 가장 많이 대여한 인기 기자재 순위를 확인하세요!")
+        
         valid_rentals["품명_clean"] = valid_rentals["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
         valid_rentals["규격_clean"] = valid_rentals["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
+        
         stats_df = valid_rentals.groupby(["품명_clean", "규격_clean"]).size().reset_index(name="누적 대여 횟수")
+        stats_df = stats_df.rename(columns={"품명_clean": "품명", "규격_clean": "규격"})
+        stats_df = stats_df.sort_values(by="누적 대여 횟수", ascending=False).reset_index(drop=True)
+        
         st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        
+        # ✨ 알록달록한 통계 그래프 코드 완벽 복구
+        st.markdown("---")
+        st.subheader("📊 대여 빈도 시각화")
+        
+        chart = alt.Chart(stats_df).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
+            x=alt.X('규격', sort='-y', axis=alt.Axis(labelAngle=-45, title="기자재 규격")),
+            y=alt.Y('누적 대여 횟수', axis=alt.Axis(tickMinStep=1, title="대여 횟수 (건)")),
+            color=alt.Color('품명', legend=alt.Legend(orient="bottom", title="품목 (품명)")),
+            tooltip=['품명', '규격', '누적 대여 횟수']
+        ).properties(
+            height=400
+        ).configure_axis(
+            grid=False
+        ).configure_view(
+            strokeWidth=0
+        )
+        
+        st.altair_chart(chart, use_container_width=True)
 
 # --- 5. 반납 처리 ---
 elif menu == "기자재 반납 처리":
