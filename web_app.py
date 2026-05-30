@@ -31,10 +31,10 @@ EQUIP_IMAGES = {
 }
 DEFAULT_IMAGE_URL = "https://via.placeholder.com/150/CCCCCC/666666?text=No+Image"
 
-# --- 공지사항 및 기본 경로 설정 ---
+# --- 공지사항 및 로고 경로 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
-LOGO_FILE = os.path.join(BASE_DIR, "CAU_symbol.png") # 💡 학교 심볼 이미지 경로
+LOGO_FILE = os.path.join(BASE_DIR, "CAU_symbol.png") # 💡 중앙대학교 심볼 이미지
 
 DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
 
@@ -101,7 +101,7 @@ def save_data(df_equip, df_rental):
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
 # ==========================================
-# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수 (규격 우선 배치)
+# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수 (규격 우선, 글씨 안 잘리게 word-break 적용)
 def get_item_icon_html(name, spec, qty):
     """장비명과 규격을 분석하여 직관적인 아이콘과 HTML 태그를 반환합니다."""
     combined_name = f"{name} {spec}".lower()
@@ -116,8 +116,7 @@ def get_item_icon_html(name, spec, qty):
     elif any(k in combined_name for k in ["flag", "플래그"]): icon = "🏴"
     else: icon = "📦"
         
-    # ✨ 한 페이지에 들어가도록 폰트 크기 및 여백(padding) 축소, 규격(spec)을 앞에 배치
-    return f"<div style='background-color:#f8f9fa; padding:4px 6px; border-radius:4px; border:1px solid #e9ecef; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'><b>{icon} {spec}</b> <span style='font-size:10px; color:#555;'>({name})</span> <span style='font-weight:bold; color:#d32f2f; margin-left:4px;'>x {qty}대</span></div>"
+    return f"<div style='background-color:#f8f9fa; padding:6px 6px; border-radius:4px; border:1px solid #e9ecef; font-size:12px; word-break:keep-all; line-height:1.4;'><b>{icon} {spec}</b> <span style='font-size:10px; color:#555;'>({name})</span> <span style='font-weight:bold; color:#d32f2f; margin-left:4px; white-space:nowrap;'>x {qty}대</span></div>"
 
 # ==========================================
 # --- 스팀릿 웹 페이지 설정 ---
@@ -448,7 +447,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (A4 1페이지 최적화 & 로고 삽입) ---
+# --- 3. 대여 신청 현황 (A4 하단 고정 레이아웃 + 완벽한 심볼 로고 적용) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -522,7 +521,7 @@ elif menu == "대여 신청 현황":
                             st.warning("거절할 장비를 표에서 먼저 체크해주세요.")
             
             st.markdown("---")
-            st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄")
+            st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄 (팝업 전용)")
             valid_rental_ids = df_rental[df_rental["신청ID"] != ""]["신청ID"].unique().tolist()
             if not valid_rental_ids:
                 st.info("출력 가능한 대여 신청 내역이 없습니다.")
@@ -540,99 +539,109 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
                         
-                        # ✨ 심볼 이미지 Base64 변환 로직 (이미지가 깨지지 않고 전송되도록 함)
+                        # ✨ 심볼 이미지 Base64 변환 로직 (파일이 없을 경우 대비해 온라인 예비 URL 적용)
                         logo_base64_str = ""
                         try:
                             if os.path.exists(LOGO_FILE):
                                 with open(LOGO_FILE, "rb") as image_file:
-                                    logo_base64_str = base64.b64encode(image_file.read()).decode()
-                        except Exception as e:
-                            pass # 이미지 로드 실패 시 텍스트 CAU로 대체되도록 처리
+                                    logo_base64_str = base64.b64encode(image_file.read()).decode("utf-8")
+                        except Exception:
+                            pass 
                         
+                        # 로컬 이미지가 정상적으로 읽힌 경우
                         if logo_base64_str:
-                            cau_logo_html = f'<img src="data:image/png;base64,{logo_base64_str}" style="height: 55px; object-fit: contain;">'
+                            cau_logo_html = f'<img src="data:image/png;base64,{logo_base64_str}" style="height: 60px; object-fit: contain;">'
+                        # 로컬 이미지가 없거나 에러난 경우 위키피디아 공식 중앙대 로고(투명) 자동 활용
                         else:
-                            cau_logo_html = '<h1 style="margin: 0; font-size: 48px; color: #0056a9; font-weight: 900; font-style: italic; font-family: Arial Black, sans-serif; letter-spacing: -3px;">CAU</h1>'
+                            cau_logo_html = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Chung-Ang_University_logo.svg/512px-Chung-Ang_University_logo.svg.png" style="height: 60px; object-fit: contain;">'
 
-                        # ✨ 한 페이지를 넘지 않도록 간격과 폰트 크기를 매우 조밀하게 튜닝한 HTML 코드
+                        # ✨ A4 하단에 딱 붙도록 Flexbox 전체 레이아웃 (min-height: 270mm)을 적용한 최종 HTML
                         html_content = f"""
-                        <h1 style="text-align:center; margin:0 0 20px 0; font-size:26px;">글로벌예술학부 기자재 대여 신청서</h1>
-                        <table style="width:100%; border-collapse:collapse; border:2px solid black; font-size:13px;">
-                            <tr>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; width:15%; text-align:center;">신청ID</th>
-                                <td colspan="3" style="border:1px solid black; padding:8px; font-weight:bold; color:#004b87;">{p_first['신청ID']}</td>
-                            </tr>
-                            <tr>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; width:15%; text-align:center;">성명</th>
-                                <td style="border:1px solid black; padding:8px; width:35%;">{p_first['이름']}</td>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; width:15%; text-align:center;">학번</th>
-                                <td style="border:1px solid black; padding:8px; width:35%;">{p_first['학번']}</td>
-                            </tr>
-                            <tr>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">연락처</th>
-                                <td style="border:1px solid black; padding:8px;">{p_first['연락처']}</td>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">담당교수</th>
-                                <td style="border:1px solid black; padding:8px;">{p_first['담당교수']}</td>
-                            </tr>
-                            <tr>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">교과명</th>
-                                <td style="border:1px solid black; padding:8px;">{p_first['교과명']}</td>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">촬영장소</th>
-                                <td style="border:1px solid black; padding:8px;">{p_first['촬영장소']}</td>
-                            </tr>
-                            <tr>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">대여기간</th>
-                                <td colspan="3" style="border:1px solid black; padding:8px;"><b>{p_first['대여날짜']}</b> ~ <b>{p_first['반납일자']}</b></td>
-                            </tr>
-                            <tr>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">대여 품목<br><span style="font-size:0.85em; font-weight:normal; color:#555;">(총 {total_items}대)</span></th>
-                                <td colspan="3" style="border:1px solid black; padding:8px;">
-                                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:4px;">{items_html_str}</div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">기타 기자재</th>
-                                <td colspan="3" style="border:1px solid black; padding:8px;">{p_first['기타기자재']}</td>
-                            </tr>
-                        </table>
-                        
-                        <div style="margin-top:15px; font-size:12px; line-height:1.5; text-align:left; border:1px solid #000; padding:10px;">
-                            <p style="font-weight:bold; margin:0 0 4px 0;">◎ 준수사항</p>
-                            <ol style="margin:0 0 8px 0; padding-left:20px;">
-                                <li><b>기자재 이용 규정을 숙지 및 준수해야 함</b></li>
-                                <li><b>책임사항:</b> 사용자의 부주의로 인한 기자재의 손상, 분실에 대해서는 사용자가 복구, 또는 변상해야 합니다. 반납 시 기자재의 이상유무를 확인 받으시기 바랍니다.</li>
-                                <li><b>금지사항:</b> 강의 및 실습 이외의 개인적인 용도의 사용</li>
-                                <li><b>관련자료제출:</b></li>
-                            </ol>
-                            <p style="font-weight:bold; margin:8px 0 4px 0;">◎ 연체 및 책임사항 불이행에 대한 조치</p>
-                            <ol style="margin:0; padding-left:20px;">
-                                <li><b>장기간의 연체, 손상 및 분실에 대한 복구 또는 변상 불이행:</b> 반납 시까지 또는 복구 및 변상 완료 시까지 제 급여의 지급 보류, 제증명 발급 보류, 학위증서의 전달이 보류될 수 있습니다.</li>
-                                <li><b>용도 이외의 사용:</b> 이후 기자재 대여 금함.</li>
-                            </ol>
-                        </div>
-                        
-                        <div style="margin-top:15px; text-align:center; font-size:14px; font-weight:bold;">
-                            <p>위의 준수사항을 수락하며 기자재의 대여를 신청합니다.</p>
-                        </div>
-                        
-                        <div style="margin-top:15px; text-align:center; font-size:14px;">
-                            <span style="margin-right:20px;">20</span><span style="margin-right:20px;">년</span><span style="margin-right:20px;">월</span><span>일</span>
-                        </div>
-                        
-                        <div style="margin-top:15px; text-align:right; font-size:14px; padding-right:50px;">
-                            <p style="margin-bottom:10px;">신청인 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
-                            <p>승인자 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
-                        </div>
-                        
-                        <div style="margin-top: 15px; border-top: 2px dashed #000; padding-top: 15px; display: flex; justify-content: space-between; align-items: center; font-family: 'Malgun Gothic', sans-serif;">
-                            <div style="text-align: left; line-height: 1.3;">
-                                <p style="margin: 0; font-size: 13px; font-weight: 800;">다빈치캠퍼스 신청서 접수 및 문의</p>
-                                <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: 500;">1. e-mail: nalsound@cau.ac.kr &nbsp;&nbsp;&nbsp;&nbsp; 2. FAX: 031)675-7157 &nbsp;&nbsp;&nbsp;&nbsp; 이창호 (내선 3352)</p>
-                                <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: 600; letter-spacing: -1px;">예술대학 글로벌예술학부 &nbsp;<span style="font-weight: 300; font-size:22px;">|</span>&nbsp; 805관 6101호</p>
+                        <div style="display: flex; flex-direction: column; min-height: 270mm; justify-content: space-between;">
+                            
+                            <div>
+                                <h1 style="text-align:center; margin:0 0 20px 0; font-size:26px;">글로벌예술학부 기자재 대여 신청서</h1>
+                                <table style="width:100%; border-collapse:collapse; border:2px solid black; font-size:13px;">
+                                    <tr>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; width:15%; text-align:center;">신청ID</th>
+                                        <td colspan="3" style="border:1px solid black; padding:8px; font-weight:bold; color:#004b87;">{p_first['신청ID']}</td>
+                                    </tr>
+                                    <tr>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; width:15%; text-align:center;">성명</th>
+                                        <td style="border:1px solid black; padding:8px; width:35%;">{p_first['이름']}</td>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; width:15%; text-align:center;">학번</th>
+                                        <td style="border:1px solid black; padding:8px; width:35%;">{p_first['학번']}</td>
+                                    </tr>
+                                    <tr>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">연락처</th>
+                                        <td style="border:1px solid black; padding:8px;">{p_first['연락처']}</td>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">담당교수</th>
+                                        <td style="border:1px solid black; padding:8px;">{p_first['담당교수']}</td>
+                                    </tr>
+                                    <tr>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">교과명</th>
+                                        <td style="border:1px solid black; padding:8px;">{p_first['교과명']}</td>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">촬영장소</th>
+                                        <td style="border:1px solid black; padding:8px;">{p_first['촬영장소']}</td>
+                                    </tr>
+                                    <tr>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">대여기간</th>
+                                        <td colspan="3" style="border:1px solid black; padding:8px;"><b>{p_first['대여날짜']}</b> ~ <b>{p_first['반납일자']}</b></td>
+                                    </tr>
+                                    <tr>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">대여 품목<br><span style="font-size:0.85em; font-weight:normal; color:#555;">(총 {total_items}대)</span></th>
+                                        <td colspan="3" style="border:1px solid black; padding:8px;">
+                                            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:4px;">{items_html_str}</div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th style="border:1px solid black; padding:8px; background-color:#f2f2f2; text-align:center;">기타 기자재</th>
+                                        <td colspan="3" style="border:1px solid black; padding:8px;">{p_first['기타기자재']}</td>
+                                    </tr>
+                                </table>
                             </div>
-                            <div style="text-align: right;">
-                                {cau_logo_html}
+                            
+                            <div style="margin-top: auto; padding-top: 20px;">
+                                <div style="font-size:12px; line-height:1.5; text-align:left; border:1px solid #000; padding:10px;">
+                                    <p style="font-weight:bold; margin:0 0 4px 0;">◎ 준수사항</p>
+                                    <ol style="margin:0 0 8px 0; padding-left:20px;">
+                                        <li><b>기자재 이용 규정을 숙지 및 준수해야 함</b></li>
+                                        <li><b>책임사항:</b> 사용자의 부주의로 인한 기자재의 손상, 분실에 대해서는 사용자가 복구, 또는 변상해야 합니다. 반납 시 기자재의 이상유무를 확인 받으시기 바랍니다.</li>
+                                        <li><b>금지사항:</b> 강의 및 실습 이외의 개인적인 용도의 사용</li>
+                                        <li><b>관련자료제출:</b></li>
+                                    </ol>
+                                    <p style="font-weight:bold; margin:8px 0 4px 0;">◎ 연체 및 책임사항 불이행에 대한 조치</p>
+                                    <ol style="margin:0; padding-left:20px;">
+                                        <li><b>장기간의 연체, 손상 및 분실에 대한 복구 또는 변상 불이행:</b> 반납 시까지 또는 복구 및 변상 완료 시까지 제 급여의 지급 보류, 제증명 발급 보류, 학위증서의 전달이 보류될 수 있습니다.</li>
+                                        <li><b>용도 이외의 사용:</b> 이후 기자재 대여 금함.</li>
+                                    </ol>
+                                </div>
+                                
+                                <div style="margin-top:15px; text-align:center; font-size:14px; font-weight:bold;">
+                                    <p>위의 준수사항을 수락하며 기자재의 대여를 신청합니다.</p>
+                                </div>
+                                
+                                <div style="margin-top:15px; text-align:center; font-size:14px;">
+                                    <span style="margin-right:20px;">20</span><span style="margin-right:20px;">년</span><span style="margin-right:20px;">월</span><span>일</span>
+                                </div>
+                                
+                                <div style="margin-top:15px; text-align:right; font-size:14px; padding-right:50px;">
+                                    <p style="margin-bottom:10px;">신청인 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
+                                    <p>승인자 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
+                                </div>
+                                
+                                <div style="margin-top: 15px; border-top: 2px dashed #000; padding-top: 15px; display: flex; justify-content: space-between; align-items: center; font-family: 'Malgun Gothic', sans-serif;">
+                                    <div style="text-align: left; line-height: 1.3;">
+                                        <p style="margin: 0; font-size: 13px; font-weight: 800;">다빈치캠퍼스 신청서 접수 및 문의</p>
+                                        <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: 500;">1. e-mail: nalsound@cau.ac.kr &nbsp;&nbsp;&nbsp;&nbsp; 2. FAX: 031)675-7157 &nbsp;&nbsp;&nbsp;&nbsp; 이창호 (내선 3352)</p>
+                                        <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: 600; letter-spacing: -1px;">예술대학 글로벌예술학부 &nbsp;<span style="font-weight: 300; font-size:22px;">|</span>&nbsp; 805관 6101호</p>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        {cau_logo_html}
+                                    </div>
+                                </div>
                             </div>
+                            
                         </div>
                         """
                         
