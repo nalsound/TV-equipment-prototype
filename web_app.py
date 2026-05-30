@@ -4,7 +4,7 @@ import base64
 from datetime import datetime
 import pandas as pd
 import streamlit as st
-import altair as alt  # ✨ 예쁜 통계 그래프를 위한 라이브러리 추가
+import altair as alt  
 from streamlit_gsheets import GSheetsConnection 
 
 # ==========================================
@@ -39,7 +39,8 @@ NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
 # ✨ 학생증 지참 문구 추가됨
 DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
 
-안녕하세요. 기자재실입니다. 
+안녕하세요.
+기자재실입니다. 
 원활하고 안전한 기자재 대여 및 관리를 위해 아래 안내 사항을 반드시 숙지해 주시기 바랍니다.
 
 **1. 대여 신청 기한 및 시스템 이용 안내**
@@ -51,11 +52,11 @@ DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 �
 * 본 시스템은 PC 웹 환경에 최적화되어 있으므로, 원활한 신청 및 화면 조회를 위해 스마트폰보다는 **컴퓨터 및 노트북에서 접속하는 것을 권장**합니다.
 
 **2. 신청서 외 장비 당일 현장 추가 불가**
-* 시스템에 제출된 **신청서에 기재된 품목 외에, 대여 당일 현장에서 즉흥적으로 장비를 추가하는 것은 절대 불가**합니다. 
+* 시스템에 제출된 **신청서에 기재된 품목 외에, 대여 당일 현장에서 즉흥적으로 장비를 추가하는 것은 절대 불가**합니다.
 * 대여 신청 전, 촬영에 필요한 장비가 장바구니에 모두 정확하게 담겼는지 꼼꼼히 확인해 주시기 바랍니다.
 
 **3. 기자재 이용 규정 숙지 의무**
-* 좌측 메뉴의 **[기자재 이용 규정]**을 반드시 정독해 주시기 바랍니다. 
+* 좌측 메뉴의 **[기자재 이용 규정]**을 반드시 정독해 주시기 바랍니다.
 * 규정 미숙지로 인해 발생하는 장비 대여 제한 및 배상 등의 불이익은 신청자 본인과 해당 팀에게 책임이 있습니다.
 
 **4. 개인정보(학번 및 연락처) 수집 동의 및 면책 안내**
@@ -73,7 +74,6 @@ def load_data():
         df_equip = conn.read(spreadsheet=EQUIPMENT_SHEET_URL, ttl=300)
         df_rental = conn.read(spreadsheet=RENTAL_SHEET_URL, ttl=300)
 
-        # 데이터가 아예 비어있을 경우를 대비해 빈 데이터프레임 초기화
         if df_equip is None or df_equip.empty:
             df_equip = pd.DataFrame(columns=["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"])
         if df_rental is None or df_rental.empty:
@@ -89,7 +89,6 @@ def load_data():
             if col not in df_rental.columns:
                 df_rental[col] = ""
 
-        # ✨ float64 에러 완벽 해결: 모든 데이터를 문자열(str)로 먼저 변환한 후 결측치(nan)를 빈 칸으로 제거합니다.
         for df in [df_equip, df_rental]:
             for col in df.columns:
                 df[col] = df[col].astype(str)
@@ -110,8 +109,6 @@ def save_data(df_equip, df_rental):
     except Exception as e:
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
-# ==========================================
-# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수 (규격 우선, 글씨 안 잘리게 word-break 적용)
 def get_item_icon_html(name, spec, qty):
     """장비명과 규격을 분석하여 직관적인 아이콘과 HTML 태그를 반환합니다."""
     combined_name = f"{name} {spec}".lower()
@@ -259,7 +256,8 @@ elif menu == "기자재 이용 규정":
     3. 대여 당일 시간을 지키지 않은 경우.
     4. 연출자 및 메인 스텝의 기자재 운용 능력이 부족하다고 판단되는 경우.
     5. 기자재 담당 교수의 승인 없이 경제적 이익을 목적으로 하는 프로젝트인 경우.
-    6. 연출자가 본교 학생이 아닌 경우. (단, 촬영자에 한해서 본교의 졸업생인 경우 전임 교수 승인 하에 가능)
+    6. 연출자가 본교 학생이 아닌 경우.
+    (단, 촬영자에 한해서 본교의 졸업생인 경우 전임 교수 승인 하에 가능)
     8. 기자재를 신청하거나 이용하는 학생이 징계 중인 학생인 경우.
 
     **제10조 【기자재 파손 및 분실 보상 절차】**
@@ -457,7 +455,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (로고 완전히 제거 및 하단 고정 레이아웃 유지) ---
+# --- 3. 대여 신청 현황 ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -515,6 +513,7 @@ elif menu == "대여 신청 현황":
                         if not selected_pending.empty:
                             target_ids = selected_pending["장비ID"].tolist()
                             
+                            # 대여 거절 시, 상태를 거절로 바꾸지 않고 아예 기록 삭제를 하거나 파기
                             df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "승인거절"
                             
                             df_rental["학번"] = df_rental["학번"].astype(str)
@@ -549,10 +548,8 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
 
-                        # ✨ 로고를 완전히 제거하고 텍스트 안내만 하단에 배치하도록 HTML 재구성
                         html_content = f"""
                         <div style="display: flex; flex-direction: column; min-height: 270mm; justify-content: space-between;">
-                            
                             <div>
                                 <h1 style="text-align:center; margin:0 0 20px 0; font-size:26px;">글로벌예술학부 기자재 대여 신청서</h1>
                                 <table style="width:100%; border-collapse:collapse; border:2px solid black; font-size:13px;">
@@ -602,7 +599,6 @@ elif menu == "대여 신청 현황":
                                         <li><b>기자재 이용 규정을 숙지 및 준수해야 함</b></li>
                                         <li><b>책임사항:</b> 사용자의 부주의로 인한 기자재의 손상, 분실에 대해서는 사용자가 복구, 또는 변상해야 합니다. 반납 시 기자재의 이상유무를 확인 받으시기 바랍니다.</li>
                                         <li><b>금지사항:</b> 강의 및 실습 이외의 개인적인 용도의 사용</li>
-                                        <li><b>관련자료제출:</b></li>
                                     </ol>
                                     <p style="font-weight:bold; margin:8px 0 4px 0;">◎ 연체 및 책임사항 불이행에 대한 조치</p>
                                     <ol style="margin:0; padding-left:20px;">
@@ -630,13 +626,11 @@ elif menu == "대여 신청 현황":
                                     <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: 600; letter-spacing: -1px;">예술대학 글로벌예술학부 &nbsp;<span style="font-weight: 300; font-size:22px;">|</span>&nbsp; 805관 6101호</p>
                                 </div>
                             </div>
-                            
                         </div>
                         """
                         
                         st.markdown("<div style='background-color:#f1f8e9; padding:15px; border-radius:8px; border:1px solid #c5e1a5; color:#2e7d32; font-weight:bold; margin-bottom:15px;'>✅ 준비 완료! 하단 버튼을 클릭하면 독립된 A4 사이즈 팝업이 열리며 즉시 인쇄 화면이 나타납니다. (반드시 브라우저 팝업 차단을 해제해주세요)</div>", unsafe_allow_html=True)
                         
-                        # ✨ 완벽한 JS 기반 Iframe 인쇄 스크립트
                         full_iframe_html = """
                         <!DOCTYPE html>
                         <html>
@@ -657,7 +651,6 @@ elif menu == "대여 신청 현황":
                             <script>
                                 function triggerPrint() {
                                     const printData = document.getElementById('print-source-data').innerHTML;
-                                    // ✨ 신청서 내용만 들어있는 독립된 새 팝업창을 엽니다.
                                     const printWindow = window.open('', '_blank', 'width=850,height=950');
                                     printWindow.document.write('<!DOCTYPE html><html><head><title>기자재 대여 신청서 인쇄</title>');
                                     printWindow.document.write('<style>');
@@ -672,7 +665,6 @@ elif menu == "대여 신청 현황":
                                     printWindow.document.write('</body></html>');
                                     printWindow.document.close();
                                     printWindow.focus();
-                                    
                                     setTimeout(function() {
                                         printWindow.print();
                                         printWindow.close();
@@ -685,7 +677,7 @@ elif menu == "대여 신청 현황":
                         
                         st.components.v1.html(full_iframe_html, height=100)
 
-# --- 4. ✨ 품목별 대여 통계 (그룹핑 및 예쁜 차트 추가) ---
+# --- 4. 품목별 대여 통계 ---
 elif menu == "품목별 대여 통계":
     st.header("📈 품목별 대여 통계")
     
@@ -696,7 +688,6 @@ elif menu == "품목별 대여 통계":
     else:
         st.markdown("학생들이 가장 많이 대여한 인기 기자재 순위를 확인하세요!")
         
-        # ✨ 괄호 안의 호수(예: 1호, 2호)를 제거하여 동일 규격으로 완벽 그룹핑
         valid_rentals["품명_clean"] = valid_rentals["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
         valid_rentals["규격_clean"] = valid_rentals["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
         
@@ -704,13 +695,11 @@ elif menu == "품목별 대여 통계":
         stats_df = stats_df.rename(columns={"품명_clean": "품명", "규격_clean": "규격"})
         stats_df = stats_df.sort_values(by="누적 대여 횟수", ascending=False).reset_index(drop=True)
         
-        # 꽉 차는 데이터프레임 표 출력
         st.dataframe(stats_df, use_container_width=True, hide_index=True)
         
         st.markdown("---")
         st.subheader("📊 대여 빈도 시각화")
         
-        # ✨ Altair를 이용한 세련된 바 차트 생성 (X축: 규격, 색상/범례: 품목)
         chart = alt.Chart(stats_df).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
             x=alt.X('규격', sort='-y', axis=alt.Axis(labelAngle=-45, title="기자재 규격")),
             y=alt.Y('누적 대여 횟수', axis=alt.Axis(tickMinStep=1, title="대여 횟수 (건)")),
@@ -726,7 +715,7 @@ elif menu == "품목별 대여 통계":
         
         st.altair_chart(chart, use_container_width=True)
 
-# --- 5. 기자재 반납 처리 (관리자 전용 메뉴로 이동) ---
+# --- 5. 기자재 반납 처리 (반납 시 신청서 데이터 완전 삭제) ---
 elif menu == "기자재 반납 처리":
     st.header("🔄 기자재 반납 처리 (관리자 전용)")
     active_rentals = df_rental[df_rental["승인상태"] == "대여중"].copy()
@@ -738,28 +727,24 @@ elif menu == "기자재 반납 처리":
         active_rentals.insert(0, "선택", select_all_return)
         edited_active = st.data_editor(active_rentals[["선택", "신청ID", "이름", "장비ID", "품명", "규격", "반납일자"]], column_config={"선택": st.column_config.CheckboxColumn("선택", default=False)}, hide_index=True, use_container_width=True)
 
-        if st.button("👍 선택한 장비 반납 확인", type="primary"):
+        if st.button("👍 선택한 장비 반납 확인 (기록 완전 삭제)", type="primary"):
             selected_to_return = edited_active[edited_active["선택"] == True]
             if not selected_to_return.empty:
                 target_ids = selected_to_return["장비ID"].tolist()
         
-                df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "반납완료"
-                
-                df_rental["학번"] = df_rental["학번"].astype(str)
-                df_rental["연락처"] = df_rental["연락처"].astype(str)
-                
-                df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
-                df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
-
+                # 1. 장비 테이블(df_equip)의 상태를 '대여가능'으로 복구
                 df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
                 
+                # 2. 개인정보 보호를 위해 대여 내역(df_rental)에서 해당 장비의 행을 완전히 삭제
+                df_rental = df_rental[~df_rental["장비ID"].isin(target_ids)].copy()
+
                 save_data(df_equip, df_rental)
-                st.success(f"✅ 장비 {len(target_ids)}대의 반납 처리 및 개인정보 파기가 완료되었습니다.")
+                st.success(f"✅ 장비 {len(target_ids)}대의 반납 처리가 완료되었으며, 신청서(개인정보 포함)가 시스템에서 완전히 삭제되었습니다.")
                 st.rerun()
             else: 
                 st.warning("반납 처리할 장비를 표에서 먼저 체크해주세요.")
 
-# --- 6. ✨ 장비 관리 (관리자 전용 - 규격 수정 활성화 유지) ---
+# --- 6. 장비 관리 (관리자 전용) ---
 elif menu == "⚙️ 장비 관리 (관리자 전용)":
     if not is_admin:
         st.warning("접근 권한이 없습니다. 사이드바에서 로그인해주세요.")
