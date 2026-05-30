@@ -84,6 +84,10 @@ def save_data(df_equip, df_rental):
         conn = st.connection("gsheets", type=GSheetsConnection)
         conn.update(spreadsheet=EQUIPMENT_SHEET_URL, data=df_equip)
         conn.update(spreadsheet=RENTAL_SHEET_URL, data=df_rental)
+        
+        # ✨ [추가된 핵심 코드] 구글 시트 업데이트 직후 스팀릿의 임시 기억(캐시)을 강제로 초기화!
+        st.cache_data.clear()
+        
     except Exception as e:
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
