@@ -165,7 +165,7 @@ else:
 is_admin = st.session_state.admin_auth
 st.sidebar.markdown("---")
 
-# ✨ 메뉴 동적 구성 (요청하신 순서 및 관리자 전용 메뉴 반영)
+# ✨ 메뉴 동적 구성
 menu_options = [
     "공지사항", 
     "기자재 이용 규정", 
@@ -353,11 +353,11 @@ elif menu == "신규 대여 신청":
 
         st.markdown("---")
         st.subheader("📊 실시간 대여 현황")
-        active_rentals = df_rental[df_rental["승인상태"] == "대여중"]
-        if active_rentals.empty: 
+        active_rentals_status = df_rental[df_rental["승인상태"] == "대여중"]
+        if active_rentals_status.empty: 
             st.info("현재 대여 중인 장비가 없습니다.")
         else: 
-            st.dataframe(active_rentals[["신청ID", "품명", "규격", "이름", "대여날짜", "반납일자"]], use_container_width=True, hide_index=True)
+            st.dataframe(active_rentals_status[["신청ID", "품명", "규격", "이름", "대여날짜", "반납일자"]], use_container_width=True, hide_index=True)
 
     with col_right:
         st.subheader("👤 1. 신청인 정보 입력")
@@ -446,16 +446,40 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 ---
+# --- ✨ 3. 대여 신청 현황 (셀 병합 효과 적용 완료) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
         st.info("현재 대여 및 대기 중인 신청 내역이 없습니다.")
     else:
-        active_rentals_display = df_rental[~df_rental["승인상태"].isin(["반납완료", "승인거절"])]
-        display_rental = active_rentals_display.drop(columns=["학번", "연락처"], errors="ignore") if not is_admin else active_rentals_display.copy()
+        # 반납완료나 거절되지 않은 '활성 상태'의 대여 건만 필터링
+        active_rentals = df_rental[~df_rental["승인상태"].isin(["반납완료", "승인거절"])].copy()
         
-        st.caption("🔓 관리자 모드: 모든 신청인의 정보가 정상 노출됩니다." if is_admin else "🔒 학생들의 개인정보 보호를 위해 '학번' 및 '연락처'는 관리자 로그인 시에만 조회됩니다.")
+        # 1. 신청ID를 기준으로 정렬하여 같은 신청 건끼리 묶이게 함
+        display_rental = active_rentals.sort_values(by=["신청ID", "장비ID"]).copy()
+        
+        # 2. 같은 신청ID를 가진 '두 번째 줄'부터 중복 여부 확인
+        is_duplicate = display_rental.duplicated(subset=["신청ID"])
+        
+        # 3. 한 번만 표시하고 아래쪽은 빈칸으로 비워둘 컬럼(열) 목록 지정
+        cols_to_merge = [
+            "신청ID", "이름", "학번", "연락처", "담당교수", 
+            "교과명", "촬영장소", "기타기자재", "대여날짜", "반납일자"
+        ]
+        
+        # 중복된 행의 지정된 컬럼들을 빈칸("")으로 덮어씌움 (셀 병합 시각적 효과)
+        for col in cols_to_merge:
+            if col in display_rental.columns:
+                display_rental.loc[is_duplicate, col] = ""
+
+        # 관리자 여부에 따른 개인정보 열 숨김 처리
+        if not is_admin:
+            display_rental = display_rental.drop(columns=["학번", "연락처"], errors="ignore")
+            st.caption("🔒 학생들의 개인정보 보호를 위해 '학번' 및 '연락처'는 관리자 로그인 시에만 조회됩니다.")
+        else:
+            st.caption("🔓 관리자 모드: 모든 신청인의 정보가 정상 노출됩니다.")
+            
+        # 표 출력
         st.dataframe(display_rental, use_container_width=True, hide_index=True)
         st.markdown("---")
 
