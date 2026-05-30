@@ -18,6 +18,7 @@ RENTAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hV8oaUlEIEA4rF6peg08
 # --- 공지사항 경로 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
+PDF_FILE_NAME = "촬영용기자재_230309_사진.pdf" # ✨ 추가된 PDF 파일 이름 설정
 
 DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
 
@@ -85,22 +86,6 @@ def save_data(df_equip, df_rental):
     except Exception as e:
         st.error(f"❌ 구글 시트 저장 오류: {e}")
 
-def get_item_icon_html(name, spec, qty):
-    """장비명 기반 텍스트 아이콘 생성"""
-    combined_name = f"{name} {spec}".lower()
-    
-    if any(k in combined_name for k in ["fx3", "fs5", "z90", "a7", "zv-", "캠코더", "카메라", "gopro", "바디"]): icon = "🎥"
-    elif any(k in combined_name for k in ["렌즈", "28-135", "24-70", "70-200", "lens"]): icon = "🔍"
-    elif any(k in combined_name for k in ["오즈모", "짐벌", "모바일", "포켓", "로닌", "gimbal"]): icon = "🤳"
-    elif any(k in combined_name for k in ["조명", "라이트", "light"]): icon = "💡"
-    elif any(k in combined_name for k in ["마이크", "녹음기", "오디오", "mic", "zoom", "pre"]): icon = "🎙️"
-    elif any(k in combined_name for k in ["삼각대", "트라이포드", "tripod", "stand"]): icon = "🔭"
-    elif any(k in combined_name for k in ["배터리", "충전기", "battery"]): icon = "🔋"
-    elif any(k in combined_name for k in ["flag", "플래그"]): icon = "🏴"
-    else: icon = "📦"
-        
-    return f"<div style='background-color:#f8f9fa; padding:6px 6px; border-radius:4px; border:1px solid #e9ecef; font-size:12px; word-break:keep-all; line-height:1.4;'><b>{icon} {spec}</b> <span style='font-size:10px; color:#555;'>({name})</span> <span style='font-weight:bold; color:#d32f2f; margin-left:4px; white-space:nowrap;'>x {qty}대</span></div>"
-
 # ==========================================
 # --- 스팀릿 웹 페이지 설정 ---
 st.set_page_config(page_title="기자재 관리 시스템", layout="wide")
@@ -149,15 +134,16 @@ else:
 is_admin = st.session_state.admin_auth
 
 st.sidebar.markdown("---")
-# ✨ 강력한 캐시 새로고침 버튼 (데이터 변경 시 꼬임 방지)
 if st.sidebar.button("🔄 최신 데이터 새로고침", help="구글 시트의 최신 데이터를 즉시 불러옵니다.", use_container_width=True):
     st.cache_data.clear()
     st.rerun()
 st.sidebar.markdown("---")
 
+# ✨ PDF 메뉴가 추가되었습니다.
 menu_options = [
     "공지사항", 
     "기자재 이용 규정", 
+    "📸 공식 기자재 사진 명세서(PDF)", 
     "장비 목록 조회", 
     "신규 대여 신청", 
     "대여 신청 현황", 
@@ -188,6 +174,34 @@ elif menu == "기자재 이용 규정":
     st.header("📜 기자재 이용 규정")
     st.markdown("규정 내용을 숙지해 주세요. (생략)")
 
+# --- 0-2. 공식 기자재 사진 명세서 (PDF) ---
+elif menu == "📸 공식 기자재 사진 명세서(PDF)":
+    st.header("📸 촬영용 기자재 명세서 (PDF)")
+    st.markdown("글로벌예술학부에서 보유 중인 촬영용 기자재의 공식 사진 및 세부 명세서입니다.")
+    
+    pdf_path = os.path.join(BASE_DIR, PDF_FILE_NAME)
+    
+    if os.path.exists(pdf_path):
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+            base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+        
+        # 1. 다운로드 버튼 제공
+        st.download_button(
+            label="📥 PDF 파일 다운로드",
+            data=pdf_bytes,
+            file_name=PDF_FILE_NAME,
+            mime="application/pdf",
+            type="primary"
+        )
+        st.markdown("---")
+        
+        # 2. 브라우저 내장 PDF 뷰어 띄우기
+        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
+        st.markdown(pdf_display, unsafe_allow_html=True)
+    else:
+        st.error(f"❌ PDF 파일을 찾을 수 없습니다. `{PDF_FILE_NAME}` 파일이 파이썬 실행 폴더 안에 있는지 확인해주세요.")
+
 # --- 1. 장비 목록 조회 ---
 elif menu == "장비 목록 조회":
     st.header("🔍 기자재 목록 조회")
@@ -197,7 +211,6 @@ elif menu == "장비 목록 조회":
         st.info("등록된 장비가 없습니다.")
     else:
         df_summary_input = df_equip.copy()
-        # 괄호 안의 (1호), (2호) 등을 제거하여 품명과 규격을 통일
         df_summary_input["품명_clean"] = df_summary_input["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
         df_summary_input["규격_clean"] = df_summary_input["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
         
@@ -209,12 +222,10 @@ elif menu == "장비 목록 조회":
                 승인대기=("현재상태", lambda x: (x == "승인대기").sum()),
                 대여중=("현재상태", lambda x: (x == "대여중").sum()),
                 점검및고장=("현재상태", lambda x: x.isin(["고장", "수리중"]).sum()),
-                # 빈 값이나 의미 없는 값이 아닌 실제 이미지 데이터(http 또는 data:)를 우선 추출
                 이미지URL=("이미지URL", lambda x: next((u for u in x if str(u).strip() and str(u).strip().lower() not in ["nan", "none", "<na>"] and (str(u).startswith("http") or str(u).startswith("data:"))), ""))
             ).reset_index()
         )
         
-        # ✨ 사진이 없을 경우 엑스박스 대신 '장비 이름'이 적힌 깔끔한 플레이스홀더 이미지를 생성합니다.
         def get_final_image_url(row):
             val = str(row["이미지URL"]).strip()
             if val.startswith("http") or val.startswith("data:"):
@@ -403,11 +414,9 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
     st.header("⚙️ 장비 일괄 관리 및 신규 등록")
     
     st.subheader("🛠️ 장비 상태 일괄/수동 변경")
-    # 이미지 데이터가 너무 길어 표가 깨지는 것을 방지하기 위해 화면 표에서는 숨깁니다.
     cols_order = ["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"]
     edited_equip_df = st.data_editor(df_equip[cols_order], hide_index=True, use_container_width=True)
     if st.button("💾 변경된 상태 한 번에 저장하기", type="primary"):
-        # 이미지 열을 보존하면서 나머지 수정된 열 업데이트
         for col in cols_order:
             df_equip[col] = edited_equip_df[col]
         save_data(df_equip, df_rental)
@@ -426,7 +435,6 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
         st.markdown("🖼️ **장비 사진 등록 (선택)**")
         st.caption("PC에 있는 사진을 업로드하면 시스템이 썸네일로 압축하여 구글 시트에 안전하게 저장합니다.")
         
-        # 📸 이미지 파일 직접 업로드 기능
         uploaded_file = st.file_uploader("PC에서 사진 파일 업로드", type=["jpg", "jpeg", "png"])
         new_img_url = st.text_input("또는 인터넷 이미지 URL 주소 직접 입력 (업로드 시 무시됨)", placeholder="https://...")
         
@@ -441,15 +449,14 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
                 new_num = f"{auto_ids['장비ID'].str.split('-').str[-1].astype(int).max() + 1:04d}" if not auto_ids.empty else "0001"
                 generated_id = prefix + new_num
                 
-                # 💡 [업그레이드] 업로드된 이미지를 썸네일(최대 250px)로 압축 후 텍스트(Base64)로 변환!
                 final_image_val = ""
                 if uploaded_file is not None:
                     try:
                         img = Image.open(uploaded_file)
-                        if img.mode in ("RGBA", "P"): # 투명 배경 오류 방지
+                        if img.mode in ("RGBA", "P"): 
                             img = img.convert("RGB")
                         
-                        img.thumbnail((250, 250)) # 구글 시트 셀 용량 초과 방지를 위한 크기 최적화
+                        img.thumbnail((250, 250)) 
                         buffered = io.BytesIO()
                         img.save(buffered, format="JPEG", quality=80)
                         img_str = base64.b64encode(buffered.getvalue()).decode()
