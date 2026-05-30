@@ -99,7 +99,7 @@ def save_data(df_equip, df_rental):
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
 # ==========================================
-# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수 (오류 수정: 줄바꿈 없는 한 줄 포맷으로 변경)
+# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수
 def get_item_icon_html(name, spec, qty):
     """장비명과 규격을 분석하여 직관적인 아이콘과 HTML 태그를 반환합니다."""
     combined_name = f"{name} {spec}".lower()
@@ -114,7 +114,8 @@ def get_item_icon_html(name, spec, qty):
     elif any(k in combined_name for k in ["flag", "플래그"]): icon = "🏴"
     else: icon = "📦"
         
-    return f"<div style='background-color:#f8f9fa; padding:8px 12px; border-radius:6px; margin-bottom:6px; border:1px solid #e9ecef; display:flex; justify-content:space-between; align-items:center;'><span style='font-size:14px;'><b>{icon} {name}</b> <span style='font-size:12px; color:#555;'>({spec})</span></span><span style='font-weight:bold; color:#d32f2f; font-size:15px;'>x {qty}대</span></div>"
+    # ✨ 2칸 분할에 어울리도록 여백(margin)을 없애고 컴팩트하게 조정한 HTML 
+    return f"<div style='background-color:#f8f9fa; padding:8px 10px; border-radius:4px; border:1px solid #e9ecef; display:flex; justify-content:space-between; align-items:center;'><span style='font-size:13px;'><b>{icon} {name}</b> <span style='font-size:11px; color:#555;'>({spec})</span></span><span style='font-weight:bold; color:#d32f2f; font-size:14px; white-space:nowrap;'>x {qty}대</span></div>"
 
 # ==========================================
 # --- 스팀릿 웹 페이지 설정 ---
@@ -461,7 +462,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (A4 인쇄 + 준수사항 적용 + HTML 렌더링 오류 수정) ---
+# --- 3. 대여 신청 현황 (A4 인쇄 + 품목 2칸 분할 적용) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -535,7 +536,7 @@ elif menu == "대여 신청 현황":
                             st.warning("거절할 장비를 표에서 먼저 체크해주세요.")
             
             st.markdown("---")
-            st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄 (오류 완벽 수정 및 준수사항 추가)")
+            st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄")
             valid_rental_ids = df_rental[df_rental["신청ID"] != ""]["신청ID"].unique().tolist()
             if not valid_rental_ids:
                 st.info("출력 가능한 대여 신청 내역이 없습니다.")
@@ -546,7 +547,6 @@ elif menu == "대여 신청 현황":
                     if not print_rows.empty:
                         p_first = print_rows.iloc[0]
                         
-                        # ✨ 품목별 아이콘 리스트 생성 (줄바꿈이 없어 마크다운 파싱 오류를 원천 차단합니다)
                         item_counts = print_rows.groupby(["품명", "규격"]).size().reset_index(name="수량")
                         items_html_list = []
                         for _, r in item_counts.iterrows():
@@ -554,8 +554,7 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
                         
-                        # ✨ 마크다운 버그가 없도록 줄바꿈을 모두 제거하고 한 덩어리로 만든 안전한 HTML 코드 생성
-                        # 준수사항(이미지 2번째 내용)이 포함되어 있습니다.
+                        # ✨ CSS Grid를 적용하여 품목을 2열(1fr 1fr)로 나누어 출력합니다.
                         html_content = f"""<div class='printable-area'>
                         <h1 style='text-align:center; margin-bottom:20px; font-size:26px;'>글로벌예술학부 기자재 대여 신청서</h1>
                         <table style='width:100%; border-collapse:collapse; border:2px solid black; font-size:14px;'>
@@ -564,7 +563,7 @@ elif menu == "대여 신청 현황":
                         <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>연락처</th><td style='border:1px solid black; padding:10px;'>{p_first['연락처']}</td><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>담당교수</th><td style='border:1px solid black; padding:10px;'>{p_first['담당교수']}</td></tr>
                         <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>교과명</th><td style='border:1px solid black; padding:10px;'>{p_first['교과명']}</td><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>촬영장소</th><td style='border:1px solid black; padding:10px;'>{p_first['촬영장소']}</td></tr>
                         <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여기간</th><td colspan='3' style='border:1px solid black; padding:10px;'><b>{p_first['대여날짜']}</b> ~ <b>{p_first['반납일자']}</b></td></tr>
-                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여 품목<br><span style='font-size:0.8em; font-weight:normal; color:#555;'>(총 {total_items}대)</span></th><td colspan='3' style='border:1px solid black; padding:10px;'>{items_html_str}</td></tr>
+                        <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>대여 품목<br><span style='font-size:0.8em; font-weight:normal; color:#555;'>(총 {total_items}대)</span></th><td colspan='3' style='border:1px solid black; padding:10px;'><div style='display:grid; grid-template-columns:1fr 1fr; column-gap:10px; row-gap:8px;'>{items_html_str}</div></td></tr>
                         <tr><th style='border:1px solid black; padding:10px; background-color:#f2f2f2; text-align:center;'>기타 기자재</th><td colspan='3' style='border:1px solid black; padding:10px;'>{p_first['기타기자재']}</td></tr>
                         </table>
                         <div style='margin-top:20px; font-size:12px; line-height:1.6; text-align:left; border:1px solid #000; padding:15px;'>
@@ -593,7 +592,6 @@ elif menu == "대여 신청 현황":
                         </div>
                         </div>"""
                         
-                        # ⚠️ 핵심 버그 수정: Streamlit markdown 파서가 빈 공간을 잘못 인식하지 않도록 개행 문자를 빈 공간으로 치환
                         html_content_safe = html_content.replace("\n", "")
                         
                         st.markdown(html_content_safe, unsafe_allow_html=True)
