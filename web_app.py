@@ -1,8 +1,10 @@
 import os
 import re
+import base64
 from datetime import datetime
 import pandas as pd
 import streamlit as st
+import altair as alt  # ✨ 예쁜 통계 그래프를 위한 라이브러리 추가
 from streamlit_gsheets import GSheetsConnection 
 
 # ==========================================
@@ -546,8 +548,8 @@ elif menu == "대여 신청 현황":
                             items_html_list.append(get_item_icon_html(r['품명'], r['규격'], r['수량']))
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
-                        
-                        # ✨ 로고 코드를 완전히 제거하고 깔끔하게 텍스트 정보만 남긴 HTML 레이아웃
+
+                        # ✨ 로고를 완전히 제거하고 텍스트 안내만 하단에 배치하도록 HTML 재구성
                         html_content = f"""
                         <div style="display: flex; flex-direction: column; min-height: 270mm; justify-content: space-between;">
                             
@@ -683,21 +685,46 @@ elif menu == "대여 신청 현황":
                         
                         st.components.v1.html(full_iframe_html, height=100)
 
-# --- 4. ✨ 품목별 대여 통계 (표 전체 너비 반영 완료) ---
+# --- 4. ✨ 품목별 대여 통계 (그룹핑 및 예쁜 차트 추가) ---
 elif menu == "품목별 대여 통계":
     st.header("📈 품목별 대여 통계")
     
-    valid_rentals = df_rental[df_rental["품명"] != ""]
+    valid_rentals = df_rental[df_rental["품명"] != ""].copy()
     
     if valid_rentals.empty:
         st.info("💡 아직 누적된 대여 기록이 없어 통계를 산출할 수 없습니다.")
     else:
         st.markdown("학생들이 가장 많이 대여한 인기 기자재 순위를 확인하세요!")
-        stats_df = valid_rentals.groupby(["품명", "규격"]).size().reset_index(name="누적 대여 횟수")
+        
+        # ✨ 괄호 안의 호수(예: 1호, 2호)를 제거하여 동일 규격으로 완벽 그룹핑
+        valid_rentals["품명_clean"] = valid_rentals["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
+        valid_rentals["규격_clean"] = valid_rentals["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
+        
+        stats_df = valid_rentals.groupby(["품명_clean", "규격_clean"]).size().reset_index(name="누적 대여 횟수")
+        stats_df = stats_df.rename(columns={"품명_clean": "품명", "규격_clean": "규격"})
         stats_df = stats_df.sort_values(by="누적 대여 횟수", ascending=False).reset_index(drop=True)
         
-        # ✨ 첨부 이미지처럼 막대그래프 없이 표만 꽉 차게 넓게 출력하도록 레이아웃 수정
+        # 꽉 차는 데이터프레임 표 출력
         st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        st.subheader("📊 대여 빈도 시각화")
+        
+        # ✨ Altair를 이용한 세련된 바 차트 생성 (X축: 규격, 색상/범례: 품목)
+        chart = alt.Chart(stats_df).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
+            x=alt.X('규격', sort='-y', axis=alt.Axis(labelAngle=-45, title="기자재 규격")),
+            y=alt.Y('누적 대여 횟수', axis=alt.Axis(tickMinStep=1, title="대여 횟수 (건)")),
+            color=alt.Color('품명', legend=alt.Legend(orient="bottom", title="품목 (품명)")),
+            tooltip=['품명', '규격', '누적 대여 횟수']
+        ).properties(
+            height=400
+        ).configure_axis(
+            grid=False
+        ).configure_view(
+            strokeWidth=0
+        )
+        
+        st.altair_chart(chart, use_container_width=True)
 
 # --- 5. 기자재 반납 처리 (관리자 전용 메뉴로 이동) ---
 elif menu == "기자재 반납 처리":
@@ -732,7 +759,7 @@ elif menu == "기자재 반납 처리":
             else: 
                 st.warning("반납 처리할 장비를 표에서 먼저 체크해주세요.")
 
-# --- 6. ✨ 장비 관리 (관리자 전용 - 규격 수정 권한 풀기 완료) ---
+# --- 6. ✨ 장비 관리 (관리자 전용 - 규격 수정 활성화 유지) ---
 elif menu == "⚙️ 장비 관리 (관리자 전용)":
     if not is_admin:
         st.warning("접근 권한이 없습니다. 사이드바에서 로그인해주세요.")
@@ -753,7 +780,6 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
         column_config={
             "장비ID": st.column_config.TextColumn("장비ID", disabled=True),
             "품명": st.column_config.TextColumn("품명", disabled=True),
-            # ✨ 규격 컬럼 편집 기능 활성화 (disabled=False) 및 연필 아이콘 추가
             "규격": st.column_config.TextColumn("규격 ✏️", disabled=False),
             "현재상태": st.column_config.SelectboxColumn(
                 "현재상태 ✏️",
