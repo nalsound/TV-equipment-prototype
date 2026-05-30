@@ -101,7 +101,7 @@ def save_data(df_equip, df_rental):
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
 # ==========================================
-# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수 (규격 우선, 글씨 안 잘리게 word-break 적용)
+# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수
 def get_item_icon_html(name, spec, qty):
     """장비명과 규격을 분석하여 직관적인 아이콘과 HTML 태그를 반환합니다."""
     combined_name = f"{name} {spec}".lower()
@@ -447,7 +447,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (A4 하단 고정 레이아웃 + 완벽한 심볼 로고 적용) ---
+# --- 3. 대여 신청 현황 (로고 깨짐 방지 및 하단 고정 레이아웃) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -539,7 +539,7 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
                         
-                        # ✨ 심볼 이미지 Base64 변환 로직 (파일이 없을 경우 대비해 온라인 예비 URL 적용)
+                        # ✨ 심볼 로고 깨짐 방지: 이미지가 없거나 읽기 실패해도 절대 깨지지 않는 '순수 HTML/CSS 텍스트 기반' Fallback 제공
                         logo_base64_str = ""
                         try:
                             if os.path.exists(LOGO_FILE):
@@ -548,14 +548,13 @@ elif menu == "대여 신청 현황":
                         except Exception:
                             pass 
                         
-                        # 로컬 이미지가 정상적으로 읽힌 경우
                         if logo_base64_str:
-                            cau_logo_html = f'<img src="data:image/png;base64,{logo_base64_str}" style="height: 60px; object-fit: contain;">'
-                        # 로컬 이미지가 없거나 에러난 경우 위키피디아 공식 중앙대 로고(투명) 자동 활용
+                            cau_logo_html = f'<img src="data:image/png;base64,{logo_base64_str}" style="height: 55px; object-fit: contain;">'
                         else:
-                            cau_logo_html = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Chung-Ang_University_logo.svg/512px-Chung-Ang_University_logo.svg.png" style="height: 60px; object-fit: contain;">'
+                            # 이미지가 없을 경우 깨진 아이콘(X박스) 대신 노출될 완벽한 텍스트 기반 로고 대체제
+                            cau_logo_html = '<div style="font-family: \'Arial Black\', Impact, sans-serif; font-size: 55px; font-weight: 900; font-style: italic; color: #0056a9; letter-spacing: -4px; margin: 0; line-height: 1; padding-right: 10px;">CAU</div>'
 
-                        # ✨ A4 하단에 딱 붙도록 Flexbox 전체 레이아웃 (min-height: 270mm)을 적용한 최종 HTML
+                        # ✨ A4 1페이지 전체 영역을 차지하며, 하단 컨텐츠가 무조건 바닥에 고정되도록 Flex 레이아웃 적용
                         html_content = f"""
                         <div style="display: flex; flex-direction: column; min-height: 270mm; justify-content: space-between;">
                             
