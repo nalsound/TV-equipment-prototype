@@ -3,10 +3,10 @@ import re
 from datetime import datetime
 import pandas as pd
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection # 구글 시트 연결용 도구 추가
+from streamlit_gsheets import GSheetsConnection 
 
 # ==========================================
-# 🚨 여기에 선생님의 구글 스프레드시트 주소를 붙여넣으세요!
+# 🚨 구글 스프레드시트 주소
 # ==========================================
 EQUIPMENT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1DkU-1hCQuTApnnFxfZAh1MXulrD6HxPHY4P1QjhqJq0/edit?gid=1121757229#gid=1121757229"
 RENTAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hV8oaUlEIEA4rF6peg083Td_1cNZbWbl6BCcEkRpkT8/edit?gid=183591911#gid=183591911"
@@ -18,10 +18,8 @@ NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
 def load_data():
     """구글 스프레드시트에서 실시간으로 데이터를 불러오는 함수"""
     try:
-        # 구글 시트 연결
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # 데이터 불러오기 (ttl=0 은 캐시를 무시하고 항상 최신 데이터를 가져오라는 뜻입니다)
         df_equip = conn.read(spreadsheet=EQUIPMENT_SHEET_URL, ttl=600)
         df_rental = conn.read(spreadsheet=RENTAL_SHEET_URL, ttl=600)
 
@@ -30,9 +28,7 @@ def load_data():
             for col in df.select_dtypes(include=["object"]).columns:
                 df[col] = df[col].astype(str).str.strip()
 
-        # 과거 반납 완료 내역 가리기
-        if "승인상태" in df_rental.columns:
-            df_rental = df_rental[df_rental["승인상태"] != "반납완료"]
+        # (수정됨) 과거 반납 완료 내역 가리기 로직 삭제 -> 이력 보존을 위해 전체 데이터를 가져옵니다.
 
         return df_equip, df_rental
         
@@ -49,8 +45,6 @@ def save_data(df_equip, df_rental):
     except Exception as e:
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
-# ==========================================
-# (이하 로직은 기존 코드와 100% 동일합니다)
 # ==========================================
 
 # --- 스팀릿 웹 페이지 설정 ---
@@ -90,7 +84,7 @@ if "notice_shown" not in st.session_state:
 
 st.title("🎬 기자재 관리 시스템")
 
-# 데이터 불러오기 (초기 화면 로딩 시 시트 연결 확인용)
+# 데이터 불러오기
 df_equip, df_rental = load_data()
 
 # --- 사이드바 ---
@@ -209,7 +203,10 @@ elif menu == "대여 신청 현황":
     if df_rental.empty:
         st.info("현재 대여 및 대기 중인 신청 내역이 없습니다.")
     else:
-        display_rental = df_rental.drop(columns=["학번", "연락처"], errors="ignore") if not is_admin else df_rental.copy()
+        # (수정됨) 화면에 띄울 때만 '반납완료' 내역 가리기
+        active_rentals_display = df_rental[df_rental["승인상태"] != "반납완료"]
+        display_rental = active_rentals_display.drop(columns=["학번", "연락처"], errors="ignore") if not is_admin else active_rentals_display.copy()
+        
         st.caption("🔓 관리자 모드: 모든 신청인의 정보가 정상 노출됩니다." if is_admin else "🔒 학생들의 개인정보 보호를 위해 '학번' 및 '연락처'는 관리자 로그인 시에만 조회됩니다.")
         st.dataframe(display_rental, use_container_width=True, hide_index=True)
         st.markdown("---")
@@ -284,8 +281,10 @@ elif menu == "신규 대여 신청":
         st.markdown("---")
         st.subheader("📊 실시간 대여 현황")
         active_rentals = df_rental[df_rental["승인상태"] == "대여중"]
-        if active_rentals.empty: st.info("현재 대여 중인 장비가 없습니다.")
-        else: st.dataframe(active_rentals[["신청ID", "품명", "규격", "이름", "대여날짜", "반납일자"]], use_container_width=True, hide_index=True)
+        if active_rentals.empty: 
+            st.info("현재 대여 중인 장비가 없습니다.")
+        else: 
+            st.dataframe(active_rentals[["신청ID", "품명", "규격", "이름", "대여날짜", "반납일자"]], use_container_width=True, hide_index=True)
 
     with col_right:
         st.subheader("👤 1. 신청인 정보 입력")
@@ -327,7 +326,8 @@ elif menu == "신규 대여 신청":
                         for item in st.session_state.cart:
                             if item["품명_clean"] == p_c and item["규격_clean"] == s_c:
                                 item["수량"] += req_qty
-                                found = True; break
+                                found = True
+                                break
                         if not found: st.session_state.cart.append({"품명_clean": p_c, "규격_clean": s_c, "수량": req_qty})
                         success_count += 1
                     if success_count > 0:
@@ -339,7 +339,9 @@ elif menu == "신규 대여 신청":
             st.dataframe(pd.DataFrame(st.session_state.cart).rename(columns={"품명_clean":"품명", "규격_clean":"규격", "수량":"담은수량"}), use_container_width=True, hide_index=True)
             col_clear, col_submit = st.columns(2)
             with col_clear:
-                if st.button("❌ 전체 비우기", use_container_width=True): st.session_state.cart = []; st.rerun()
+                if st.button("❌ 전체 비우기", use_container_width=True): 
+                    st.session_state.cart = []
+                    st.rerun()
             with col_submit:
                 if st.button("🚀 최종 대여 신청 제출", type="primary", use_container_width=True):
                     if not name.strip() or not student_id.strip(): st.error("❌ 신청자 이름과 학번을 꼭 채워주세요.")
@@ -383,11 +385,18 @@ elif menu == "기자재 반납 처리":
                 selected_to_return = edited_active[edited_active["선택"] == True]
                 if not selected_to_return.empty:
                     target_ids = selected_to_return["장비ID"].tolist()
-                    df_rental = df_rental[~df_rental["장비ID"].isin(target_ids)]
+            
+                    # (수정됨) 상태를 반납완료로 변경하고 개인정보 파기
+                    df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "반납완료"
+                    df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
+                    df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
+
                     df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
+                    
                     save_data(df_equip, df_rental)
-                    st.success(f"✅ 장비 {len(target_ids)}대의 반납 처리가 완료되었습니다.")
+                    st.success(f"✅ 장비 {len(target_ids)}대의 반납 처리 및 개인정보 파기가 완료되었습니다.")
                     st.rerun()
-                else: st.warning("반납 처리할 장비를 표에서 먼저 체크해주세요.")
+                else: 
+                    st.warning("반납 처리할 장비를 표에서 먼저 체크해주세요.")
     else:
         st.warning("🔒 반납 처리는 관리자 전용 메뉴입니다. 사이드바에 비밀번호를 입력해주세요.")
