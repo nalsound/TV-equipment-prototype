@@ -455,7 +455,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (로고 제거 및 하단 고정 레이아웃) ---
+# --- 3. 대여 신청 현황 (로고 완전히 제거 및 하단 고정 레이아웃 유지) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -547,11 +547,10 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
                         
-                        # ✨ 로고를 완전히 제거하고 텍스트 안내만 하단에 배치하도록 HTML 재구성
+                        # ✨ 로고 코드를 완전히 제거하고 깔끔하게 텍스트 정보만 남긴 HTML 레이아웃
                         html_content = f"""
                         <div style="display: flex; flex-direction: column; min-height: 270mm; justify-content: space-between;">
                             
-                            <!-- 상단 컨텐츠: 제목 및 테이블 -->
                             <div>
                                 <h1 style="text-align:center; margin:0 0 20px 0; font-size:26px;">글로벌예술학부 기자재 대여 신청서</h1>
                                 <table style="width:100%; border-collapse:collapse; border:2px solid black; font-size:13px;">
@@ -594,7 +593,6 @@ elif menu == "대여 신청 현황":
                                 </table>
                             </div>
                             
-                            <!-- 하단 컨텐츠: 준수사항, 서명란, 접수처 안내 (margin-top: auto로 페이지 맨 아래 고정됨) -->
                             <div style="margin-top: auto; padding-top: 20px;">
                                 <div style="font-size:12px; line-height:1.5; text-align:left; border:1px solid #000; padding:10px;">
                                     <p style="font-weight:bold; margin:0 0 4px 0;">◎ 준수사항</p>
@@ -624,7 +622,6 @@ elif menu == "대여 신청 현황":
                                     <p>승인자 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
                                 </div>
                                 
-                                <!-- 다빈치캠퍼스 접수처 안내 (로고 제거) -->
                                 <div style="margin-top: 15px; border-top: 2px dashed #000; padding-top: 15px; text-align: left; font-family: 'Malgun Gothic', sans-serif; line-height: 1.3;">
                                     <p style="margin: 0; font-size: 13px; font-weight: 800;">다빈치캠퍼스 신청서 접수 및 문의</p>
                                     <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: 500;">1. e-mail: nalsound@cau.ac.kr &nbsp;&nbsp;&nbsp;&nbsp; 2. FAX: 031)675-7157 &nbsp;&nbsp;&nbsp;&nbsp; 이창호 (내선 3352)</p>
@@ -686,7 +683,7 @@ elif menu == "대여 신청 현황":
                         
                         st.components.v1.html(full_iframe_html, height=100)
 
-# --- 4. 품목별 대여 통계 ---
+# --- 4. ✨ 품목별 대여 통계 (표 전체 너비 반영 완료) ---
 elif menu == "품목별 대여 통계":
     st.header("📈 품목별 대여 통계")
     
@@ -699,11 +696,8 @@ elif menu == "품목별 대여 통계":
         stats_df = valid_rentals.groupby(["품명", "규격"]).size().reset_index(name="누적 대여 횟수")
         stats_df = stats_df.sort_values(by="누적 대여 횟수", ascending=False).reset_index(drop=True)
         
-        col1, col2 = st.columns([1, 1.5])
-        with col1:
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
-        with col2:
-            st.bar_chart(stats_df.set_index("규격")["누적 대여 횟수"])
+        # ✨ 첨부 이미지처럼 막대그래프 없이 표만 꽉 차게 넓게 출력하도록 레이아웃 수정
+        st.dataframe(stats_df, use_container_width=True, hide_index=True)
 
 # --- 5. 기자재 반납 처리 (관리자 전용 메뉴로 이동) ---
 elif menu == "기자재 반납 처리":
@@ -738,7 +732,7 @@ elif menu == "기자재 반납 처리":
             else: 
                 st.warning("반납 처리할 장비를 표에서 먼저 체크해주세요.")
 
-# --- 6. 장비 관리 (관리자 전용) ---
+# --- 6. ✨ 장비 관리 (관리자 전용 - 규격 수정 권한 풀기 완료) ---
 elif menu == "⚙️ 장비 관리 (관리자 전용)":
     if not is_admin:
         st.warning("접근 권한이 없습니다. 사이드바에서 로그인해주세요.")
@@ -747,11 +741,10 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
     st.header("⚙️ 장비 일괄 관리 및 신규 등록")
     
     st.subheader("🛠️ 장비 상태 일괄/수동 변경")
-    st.caption("💡 표 안의 **'현재상태 ✏️'** 또는 **'자산번호 ✏️'** 칸을 더블클릭하면 데이터를 바로 수정할 수 있습니다.")
+    st.caption("💡 표 안의 **'규격 ✏️'**, **'현재상태 ✏️'** 또는 **'자산번호 ✏️'** 칸을 더블클릭하면 데이터를 바로 수정할 수 있습니다.")
     
     cols_order = ["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"]
     
-    # ✨ 상태 옵션을 기존 값들을 포함해 동적으로 생성 (Selectbox 데이터 충돌 원천 차단)
     unique_status = [s for s in df_equip["현재상태"].unique() if s.strip()]
     status_options = list(set(["대여가능", "대여중", "고장", "수리중", "승인대기", ""] + unique_status))
 
@@ -760,7 +753,8 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
         column_config={
             "장비ID": st.column_config.TextColumn("장비ID", disabled=True),
             "품명": st.column_config.TextColumn("품명", disabled=True),
-            "규격": st.column_config.TextColumn("규격", disabled=True),
+            # ✨ 규격 컬럼 편집 기능 활성화 (disabled=False) 및 연필 아이콘 추가
+            "규격": st.column_config.TextColumn("규격 ✏️", disabled=False),
             "현재상태": st.column_config.SelectboxColumn(
                 "현재상태 ✏️",
                 help="클릭하여 장비의 상태를 변경하세요",
