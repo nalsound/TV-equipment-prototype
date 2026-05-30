@@ -13,7 +13,6 @@ RENTAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hV8oaUlEIEA4rF6peg08
 
 # ==========================================
 # 🖼️ 기자재 사진 URL 매핑 딕셔너리
-# (추후 이 부분의 주소를 깃허브 이미지 주소로 변경해주시면 됩니다!)
 # ==========================================
 EQUIP_IMAGES = {
     "Cinema Line FX3": "https://via.placeholder.com/150/555555/FFFFFF?text=FX3",
@@ -35,18 +34,17 @@ DEFAULT_IMAGE_URL = "https://via.placeholder.com/150/CCCCCC/666666?text=No+Image
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
 
-# ✨ 공지사항 1번 항목 시간 추가 완료
 DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
 
 안녕하세요. 기자재실입니다. 
 원활하고 안전한 기자재 대여 및 관리를 위해 아래 안내 사항을 반드시 숙지해 주시기 바랍니다.
 
-**1. 대여 신청 기한 및 승인 시간 안내**
+**1. 대여 신청 기한 및 시스템 이용 안내**
 * 기자재 대여 신청은 대여 희망일 기준 **최소 3일 전 신청을 원칙**으로 합니다.
 * 접수된 기자재 대여 신청서는 **매일 오전 10시와 오후 2시**에 일괄적으로 확인 및 승인 처리됩니다.
 * **대여 및 반납 시간은 09:00~17:00까지**입니다.
 * 원활한 대여 준비를 위해 기한과 승인 시간을 고려하여 사전에 여유 있게 신청서를 제출해 주시기 바랍니다.
-* 본 시스템은 PC 웹 환경에 최적화되어 있으므로, 원활한 신청 및 화면 조회를 위해 스마트폰보다는 컴퓨터 및 노트북에서 접속하는 것을 권장합니다. 
+* 본 시스템은 PC 웹 환경에 최적화되어 있으므로, 원활한 신청 및 화면 조회를 위해 스마트폰보다는 **컴퓨터 및 노트북에서 접속하는 것을 권장**합니다.
 
 **2. 신청서 외 장비 당일 현장 추가 불가**
 * 시스템에 제출된 **신청서에 기재된 품목 외에, 대여 당일 현장에서 즉흥적으로 장비를 추가하는 것은 절대 불가**합니다. 
@@ -67,10 +65,10 @@ def load_data():
     """구글 스프레드시트에서 실시간으로 데이터를 불러오는 함수"""
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
+        
         df_equip = conn.read(spreadsheet=EQUIPMENT_SHEET_URL, ttl=300)
         df_rental = conn.read(spreadsheet=RENTAL_SHEET_URL, ttl=300)
 
-        # 공백 제거 등 데이터 정제
         for df in [df_equip, df_rental]:
             for col in df.select_dtypes(include=["object"]).columns:
                 df[col] = df[col].astype(str).str.strip()
@@ -86,7 +84,6 @@ def save_data(df_equip, df_rental):
         conn.update(spreadsheet=EQUIPMENT_SHEET_URL, data=df_equip)
         conn.update(spreadsheet=RENTAL_SHEET_URL, data=df_rental)
         
-        # ✨ [추가된 핵심 코드] 구글 시트 업데이트 직후 스팀릿의 임시 기억(캐시)을 강제로 초기화!
         st.cache_data.clear()
         
     except Exception as e:
@@ -144,6 +141,7 @@ if not st.session_state.notice_agreed:
 # ==========================================
 st.title("🎬 기자재 관리 시스템")
 
+# 데이터 불러오기
 df_equip, df_rental = load_data()
 
 # --- 사이드바 ---
@@ -290,7 +288,7 @@ elif menu == "장비 목록 조회":
             ).reset_index()
         )
         
-        # ✨ 사진 URL 매핑 (규격을 기준으로 딕셔너리에서 매칭)
+        # 사진 URL 매핑 (규격을 기준으로 딕셔너리에서 매칭)
         df_summary.insert(0, "사진", df_summary["규격"].map(EQUIP_IMAGES).fillna(DEFAULT_IMAGE_URL))
         
         st.dataframe(
@@ -312,20 +310,38 @@ elif menu == "장비 목록 조회":
         st.markdown("---")
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("🛠️ 장비 상태 수동 변경")
-            equip_options = df_equip.apply(lambda r: f"{r['장비ID']} | {r['품명']} ({r['규격']}) [현재: {r['현재상태']}]", axis=1).tolist()
-            selected_equip_opt = st.selectbox("상태를 변경할 장비를 선택하세요", equip_options)
-            if selected_equip_opt:
-                target_equip_id = selected_equip_opt.split(" | ")[0].strip()
-                status_list = ["대여가능", "대여중", "고장", "수리중", "승인대기"]
-                current_status = df_equip.loc[df_equip["장비ID"] == target_equip_id, "현재상태"].values[0]
-                default_idx = status_list.index(current_status) if current_status in status_list else 0
-                new_status = st.selectbox("변경할 새로운 상태를 선택하세요", status_list, index=default_idx)
-                if st.button("💾 상태 변경 저장하기", type="primary"):
-                    df_equip.loc[df_equip["장비ID"] == target_equip_id, "현재상태"] = new_status
+            # ✨ 수동 드롭다운에서 리스트 편집형으로 변경된 부분입니다.
+            st.subheader("🛠️ 장비 상태 일괄/수동 변경")
+            st.caption("💡 표 안의 **'현재상태 ✏️'** 칸을 더블클릭하면 엑셀처럼 여러 장비의 상태를 바로바로 수정할 수 있습니다.")
+            
+            edited_equip_df = st.data_editor(
+                df_equip,
+                column_config={
+                    "장비ID": st.column_config.TextColumn("장비ID", disabled=True),
+                    "품명": st.column_config.TextColumn("품명", disabled=True),
+                    "규격": st.column_config.TextColumn("규격", disabled=True),
+                    "비고": st.column_config.TextColumn("비고", disabled=True),
+                    "현재상태": st.column_config.SelectboxColumn(
+                        "현재상태 ✏️",
+                        help="클릭하여 장비의 상태를 변경하세요",
+                        options=["대여가능", "대여중", "고장", "수리중", "승인대기"],
+                        required=True
+                    )
+                },
+                hide_index=True,
+                use_container_width=True,
+                height=300
+            )
+
+            if st.button("💾 변경된 상태 한 번에 저장하기", type="primary"):
+                if not df_equip.equals(edited_equip_df):
+                    df_equip = edited_equip_df.copy()
                     save_data(df_equip, df_rental)
-                    st.success(f"✅ 장비 [{target_equip_id}] 상태가 '{new_status}'로 변경되었습니다.")
+                    st.success("✅ 장비 상태가 성공적으로 일괄 업데이트되었습니다!")
                     st.rerun()
+                else:
+                    st.info("💡 변경된 장비 상태가 없습니다.")
+                    
         with col2:
             st.subheader("➕ 신규 기자재 추가 등록")
             with st.form("add_equipment_form", clear_on_submit=True):
@@ -576,4 +592,4 @@ elif menu == "기자재 반납 처리":
                 else: 
                     st.warning("반납 처리할 장비를 표에서 먼저 체크해주세요.")
     else:
-        st.warning("🔒 반납 처리는 관리자 전용 메뉴입니다. 사이드바에 비밀번호를 입력해주세요.")
+        st.warning("🔒 반납 처리는 관리자 전용 메뉴입니다. 사이드바에 비밀번호를 입력해주세요."
