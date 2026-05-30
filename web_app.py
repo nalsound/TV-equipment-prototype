@@ -69,9 +69,21 @@ def load_data():
         df_equip = conn.read(spreadsheet=EQUIPMENT_SHEET_URL, ttl=300)
         df_rental = conn.read(spreadsheet=RENTAL_SHEET_URL, ttl=300)
 
+        # ✨ KeyError 방지: 시트가 비어있어도 필수 컬럼을 강제로 생성합니다.
+        required_equip_cols = ["장비ID", "품명", "규격", "현재상태", "비고"]
+        for col in required_equip_cols:
+            if col not in df_equip.columns:
+                df_equip[col] = ""
+
+        required_rental_cols = ["신청ID", "장비ID", "품명", "규격", "이름", "학번", "연락처", "담당교수", "교과명", "촬영장소", "기타기자재", "대여날짜", "반납일자", "승인상태"]
+        for col in required_rental_cols:
+            if col not in df_rental.columns:
+                df_rental[col] = ""
+
         for df in [df_equip, df_rental]:
             for col in df.select_dtypes(include=["object"]).columns:
                 df[col] = df[col].astype(str).str.strip()
+                
         return df_equip, df_rental
     except Exception as e:
         st.error(f"❌ 구글 시트에서 데이터를 불러오는 중 오류가 발생했습니다: {e}")
@@ -83,9 +95,7 @@ def save_data(df_equip, df_rental):
         conn = st.connection("gsheets", type=GSheetsConnection)
         conn.update(spreadsheet=EQUIPMENT_SHEET_URL, data=df_equip)
         conn.update(spreadsheet=RENTAL_SHEET_URL, data=df_rental)
-        
         st.cache_data.clear()
-        
     except Exception as e:
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
@@ -117,13 +127,11 @@ if "clear_inputs" not in st.session_state: st.session_state.clear_inputs = False
 if "submit_success" not in st.session_state: st.session_state.submit_success = False
 if "notice_agreed" not in st.session_state: st.session_state.notice_agreed = False
 
-# --- 공지사항 내용 불러오기 ---
 current_notice = DEFAULT_NOTICE
 if os.path.exists(NOTICE_FILE):
     with open(NOTICE_FILE, "r", encoding="utf-8") as f:
         current_notice = f.read().strip()
 
-# --- 🚨 공지사항 팝업 (동의 전까지 화면 차단) ---
 @st.dialog("📢 시스템 이용 안내 및 동의", width="large")
 def show_notice_dialog(notice_text):
     st.markdown(notice_text)
@@ -136,12 +144,7 @@ if not st.session_state.notice_agreed:
     show_notice_dialog(current_notice)
     st.stop()
 
-# ==========================================
-# 동의가 완료된 이후 실행되는 메인 시스템 로직
-# ==========================================
 st.title("🎬 기자재 관리 시스템")
-
-# 데이터 불러오기
 df_equip, df_rental = load_data()
 
 # --- 사이드바 ---
@@ -161,7 +164,13 @@ else:
 
 is_admin = st.session_state.admin_auth
 st.sidebar.markdown("---")
-menu = st.sidebar.radio("📌 메뉴 선택", ["공지사항", "기자재 이용 규정", "장비 목록 조회", "대여 신청 현황", "신규 대여 신청", "기자재 반납 처리"])
+
+# ✨ 메뉴 동적 구성 (관리자 모드일 때만 '장비 관리' 메뉴 추가)
+menu_options = ["공지사항", "기자재 이용 규정", "장비 목록 조회", "품목별 대여 통계", "대여 신청 현황", "신규 대여 신청", "기자재 반납 처리"]
+if is_admin:
+    menu_options.append("⚙️ 장비 관리 (관리자 전용)")
+
+menu = st.sidebar.radio("📌 메뉴 선택", menu_options)
 
 # --- 0. 공지사항 메뉴 ---
 if menu == "공지사항":
@@ -288,7 +297,6 @@ elif menu == "장비 목록 조회":
             ).reset_index()
         )
         
-        # 사진 URL 매핑 (규격을 기준으로 딕셔너리에서 매칭)
         df_summary.insert(0, "사진", df_summary["규격"].map(EQUIP_IMAGES).fillna(DEFAULT_IMAGE_URL))
         
         st.dataframe(
@@ -306,69 +314,91 @@ elif menu == "장비 목록 조회":
     display_df = df_equip[df_equip["현재상태"] == "대여가능"].copy() if filter_option == "대여 가능 장비만 보기" else df_equip.copy()
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    if is_admin:
-        st.markdown("---")
-        col1, col2 = st.columns(2)
-        with col1:
-            # ✨ 수동 드롭다운에서 리스트 편집형으로 변경된 부분입니다.
-            st.subheader("🛠️ 장비 상태 일괄/수동 변경")
-            st.caption("💡 표 안의 **'현재상태 ✏️'** 칸을 더블클릭하면 엑셀처럼 여러 장비의 상태를 바로바로 수정할 수 있습니다.")
-            
-            edited_equip_df = st.data_editor(
-                df_equip,
-                column_config={
-                    "장비ID": st.column_config.TextColumn("장비ID", disabled=True),
-                    "품명": st.column_config.TextColumn("품명", disabled=True),
-                    "규격": st.column_config.TextColumn("규격", disabled=True),
-                    "비고": st.column_config.TextColumn("비고", disabled=True),
-                    "현재상태": st.column_config.SelectboxColumn(
-                        "현재상태 ✏️",
-                        help="클릭하여 장비의 상태를 변경하세요",
-                        options=["대여가능", "대여중", "고장", "수리중", "승인대기"],
-                        required=True
-                    )
-                },
-                hide_index=True,
-                use_container_width=True,
-                height=300
-            )
-
-            if st.button("💾 변경된 상태 한 번에 저장하기", type="primary"):
-                if not df_equip.equals(edited_equip_df):
-                    df_equip = edited_equip_df.copy()
-                    save_data(df_equip, df_rental)
-                    st.success("✅ 장비 상태가 성공적으로 일괄 업데이트되었습니다!")
-                    st.rerun()
-                else:
-                    st.info("💡 변경된 장비 상태가 없습니다.")
-                    
-        with col2:
-            st.subheader("➕ 신규 기자재 추가 등록")
-            with st.form("add_equipment_form", clear_on_submit=True):
-                new_name = st.text_input("📦 품명 (예: 캠코더, 미러리스 카메라)")
-                new_spec = st.text_input("📐 규격 (예: PWX-Z90, Sony FX3)")
-                new_remarks = st.text_input("📝 비고")
-                if st.form_submit_button("🚀 새 장비 등록하기"):
-                    if not new_name.strip():
-                        st.error("❌ 품명은 필수 입력 항목입니다.")
-                    else:
-                        prefix = "EQ-AUTO-"
-                        auto_ids = df_equip[df_equip["장비ID"].str.startswith(prefix, na=False)]
-                        new_num = f"{auto_ids['장비ID'].str.split('-').str[-1].astype(int).max() + 1:04d}" if not auto_ids.empty else "0001"
-                        generated_id = prefix + new_num
-                        new_equip_row = {"장비ID": generated_id, "품명": new_name.strip(), "규격": new_spec.strip() if new_spec.strip() else "-", "현재상태": "대여가능", "비고": new_remarks.strip() if new_remarks.strip() else "-"}
-                        df_equip = pd.concat([df_equip, pd.DataFrame([new_equip_row])], ignore_index=True)
-                        save_data(df_equip, df_rental)
-                        st.success(f"🎉 등록 성공! 자동 발급된 ID: [{generated_id}]")
-                        st.rerun()
+# --- ✨ 1-2. 품목별 대여 통계 (신규 추가) ---
+elif menu == "품목별 대여 통계":
+    st.header("📈 품목별 대여 통계")
+    
+    # 빈 칸("")이 아닌 실제 대여 기록만 필터링합니다.
+    valid_rentals = df_rental[df_rental["품명"] != ""]
+    
+    if valid_rentals.empty:
+        st.info("💡 아직 누적된 대여 기록이 없어 통계를 산출할 수 없습니다.")
     else:
-        st.markdown("---")
-        st.warning("🔒 장비 상태 변경 및 신규 등록은 관리자 기능입니다. 사이드바에 비밀번호를 입력해주세요.")
+        st.markdown("학생들이 가장 많이 대여한 인기 기자재 순위를 확인하세요!")
+        stats_df = valid_rentals.groupby(["품명", "규격"]).size().reset_index(name="누적 대여 횟수")
+        stats_df = stats_df.sort_values(by="누적 대여 횟수", ascending=False).reset_index(drop=True)
+        
+        col1, col2 = st.columns([1, 1.5])
+        with col1:
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        with col2:
+            # 시각화 차트 제공
+            st.bar_chart(stats_df.set_index("규격")["누적 대여 횟수"])
+
+# --- ✨ 1-3. 장비 관리 (관리자 전용) ---
+elif menu == "⚙️ 장비 관리 (관리자 전용)":
+    if not is_admin:
+        st.warning("접근 권한이 없습니다. 사이드바에서 로그인해주세요.")
+        st.stop()
+        
+    st.header("⚙️ 장비 일괄 관리 및 신규 등록")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("🛠️ 장비 상태 일괄/수동 변경")
+        st.caption("💡 표 안의 **'현재상태 ✏️'** 칸을 더블클릭하면 엑셀처럼 여러 장비의 상태를 바로바로 수정할 수 있습니다.")
+        
+        edited_equip_df = st.data_editor(
+            df_equip,
+            column_config={
+                "장비ID": st.column_config.TextColumn("장비ID", disabled=True),
+                "품명": st.column_config.TextColumn("품명", disabled=True),
+                "규격": st.column_config.TextColumn("규격", disabled=True),
+                "비고": st.column_config.TextColumn("비고", disabled=True),
+                "현재상태": st.column_config.SelectboxColumn(
+                    "현재상태 ✏️",
+                    help="클릭하여 장비의 상태를 변경하세요",
+                    options=["대여가능", "대여중", "고장", "수리중", "승인대기"],
+                    required=True
+                )
+            },
+            hide_index=True,
+            use_container_width=True,
+            height=300
+        )
+
+        if st.button("💾 변경된 상태 한 번에 저장하기", type="primary"):
+            if not df_equip.equals(edited_equip_df):
+                df_equip = edited_equip_df.copy()
+                save_data(df_equip, df_rental)
+                st.success("✅ 장비 상태가 성공적으로 일괄 업데이트되었습니다!")
+                st.rerun()
+            else:
+                st.info("💡 변경된 장비 상태가 없습니다.")
+                
+    with col2:
+        st.subheader("➕ 신규 기자재 추가 등록")
+        with st.form("add_equipment_form", clear_on_submit=True):
+            new_name = st.text_input("📦 품명 (예: 캠코더, 미러리스 카메라)")
+            new_spec = st.text_input("📐 규격 (예: PWX-Z90, Sony FX3)")
+            new_remarks = st.text_input("📝 비고")
+            if st.form_submit_button("🚀 새 장비 등록하기"):
+                if not new_name.strip():
+                    st.error("❌ 품명은 필수 입력 항목입니다.")
+                else:
+                    prefix = "EQ-AUTO-"
+                    auto_ids = df_equip[df_equip["장비ID"].str.startswith(prefix, na=False)]
+                    new_num = f"{auto_ids['장비ID'].str.split('-').str[-1].astype(int).max() + 1:04d}" if not auto_ids.empty else "0001"
+                    generated_id = prefix + new_num
+                    new_equip_row = {"장비ID": generated_id, "품명": new_name.strip(), "규격": new_spec.strip() if new_spec.strip() else "-", "현재상태": "대여가능", "비고": new_remarks.strip() if new_remarks.strip() else "-"}
+                    df_equip = pd.concat([df_equip, pd.DataFrame([new_equip_row])], ignore_index=True)
+                    save_data(df_equip, df_rental)
+                    st.success(f"🎉 등록 성공! 자동 발급된 ID: [{generated_id}]")
+                    st.rerun()
 
 # --- 2. 대여 신청 현황 ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
-    if df_rental.empty:
+    if df_rental.empty or df_rental["품명"].iloc[0] == "":
         st.info("현재 대여 및 대기 중인 신청 내역이 없습니다.")
     else:
         active_rentals_display = df_rental[~df_rental["승인상태"].isin(["반납완료", "승인거절"])]
@@ -425,11 +455,12 @@ elif menu == "대여 신청 현황":
             
             st.markdown("---")
             st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄")
-            all_rental_ids = df_rental["신청ID"].unique().tolist()
-            if not all_rental_ids:
+            # 빈 값이 아닌 실제 신청ID만 인쇄 목록에 표시
+            valid_rental_ids = df_rental[df_rental["신청ID"] != ""]["신청ID"].unique().tolist()
+            if not valid_rental_ids:
                 st.info("출력 가능한 대여 신청 내역이 없습니다.")
             else:
-                selected_print_id = st.selectbox("🖨️ 출력 서류를 선택하세요", all_rental_ids)
+                selected_print_id = st.selectbox("🖨️ 출력 서류를 선택하세요", valid_rental_ids)
                 if selected_print_id:
                     print_rows = df_rental[df_rental["신청ID"] == selected_print_id]
                     if not print_rows.empty:
@@ -552,7 +583,12 @@ elif menu == "신규 대여 신청":
 
                         if stock_error: st.error("❌ 재고 변동 발생")
                         else:
-                            df_rental = pd.concat([df_rental, pd.DataFrame(new_rows)], ignore_index=True)
+                            # 만약 df_rental이 깡통(빈 데이터)이었다면 기존 데이터를 무시하고 덮어씌웁니다.
+                            if df_rental.empty or df_rental["품명"].iloc[0] == "":
+                                df_rental = pd.DataFrame(new_rows)
+                            else:
+                                df_rental = pd.concat([df_rental, pd.DataFrame(new_rows)], ignore_index=True)
+                            
                             save_data(df_equip, df_rental)
                             st.session_state.cart = []
                             st.session_state.clear_inputs = True
