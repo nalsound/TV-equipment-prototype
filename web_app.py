@@ -15,10 +15,9 @@ from PIL import Image
 EQUIPMENT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1DkU-1hCQuTApnnFxfZAh1MXulrD6HxPHY4P1QjhqJq0/edit?gid=1121757229#gid=1121757229"
 RENTAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hV8oaUlEIEA4rF6peg083Td_1cNZbWbl6BCcEkRpkT8/edit?gid=183591911#gid=183591911"
 
-# --- 공지사항 및 PDF 경로 설정 ---
+# --- 공지사항 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
-PDF_FILE_NAME = "촬영용기자재_230309_사진.pdf"
 
 DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
 
@@ -142,7 +141,6 @@ st.sidebar.markdown("---")
 menu_options = [
     "공지사항", 
     "기자재 이용 규정", 
-    "📸 공식 기자재 사진 명세서(PDF)", 
     "장비 목록 조회", 
     "신규 대여 신청", 
     "대여 신청 현황", 
@@ -257,33 +255,7 @@ elif menu == "기자재 이용 규정":
     ---
     """)
 
-# --- 0-2. 공식 기자재 사진 명세서 (PDF) ---
-elif menu == "📸 공식 기자재 사진 명세서(PDF)":
-    st.header("📸 촬영용 기자재 명세서 (PDF)")
-    st.markdown("글로벌예술학부에서 보유 중인 촬영용 기자재의 공식 사진 및 세부 명세서입니다.")
-    
-    pdf_path = os.path.join(BASE_DIR, PDF_FILE_NAME)
-    
-    if os.path.exists(pdf_path):
-        with open(pdf_path, "rb") as f:
-            pdf_bytes = f.read()
-            base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-        
-        st.download_button(
-            label="📥 PDF 파일 다운로드",
-            data=pdf_bytes,
-            file_name=PDF_FILE_NAME,
-            mime="application/pdf",
-            type="primary"
-        )
-        st.markdown("---")
-        
-        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
-        st.markdown(pdf_display, unsafe_allow_html=True)
-    else:
-        st.error(f"❌ PDF 파일을 찾을 수 없습니다. `{PDF_FILE_NAME}` 파일이 파이썬 실행 폴더 안에 있는지 확인해주세요.")
-
-# --- 1. 장비 목록 조회 (사진 미리보기 제거됨) ---
+# --- 1. 장비 목록 조회 (✨ 사진 미리보기 복구됨) ---
 elif menu == "장비 목록 조회":
     st.header("🔍 기자재 목록 조회")
     st.subheader("📊 품목별 보유 현황 (수량 요약)")
@@ -302,16 +274,33 @@ elif menu == "장비 목록 조회":
                 대여가능=("현재상태", lambda x: (x == "대여가능").sum()),
                 승인대기=("현재상태", lambda x: (x == "승인대기").sum()),
                 대여중=("현재상태", lambda x: (x == "대여중").sum()),
-                점검및고장=("현재상태", lambda x: x.isin(["고장", "수리중"]).sum())
+                점검및고장=("현재상태", lambda x: x.isin(["고장", "수리중"]).sum()),
+                이미지URL=("이미지URL", lambda x: next((u for u in x if str(u).strip() and str(u).strip().lower() not in ["nan", "none", "<na>"] and (str(u).startswith("http") or str(u).startswith("data:"))), ""))
             ).reset_index()
         )
         
+        def get_final_image_url(row):
+            val = str(row["이미지URL"]).strip()
+            if val.startswith("http") or val.startswith("data:"):
+                return val
+            encoded_spec = str(row["규격_clean"]).replace(" ", "+")
+            return f"https://via.placeholder.com/150/EAEAEA/333333?text={encoded_spec}"
+
+        df_summary["사진"] = df_summary.apply(get_final_image_url, axis=1)
+        
         df_summary = df_summary.rename(columns={"품명_clean": "품명", "규격_clean": "규격"})
-        cols = ["품명", "규격", "총보유수량", "대여가능", "승인대기", "대여중", "점검및고장"]
+        cols = ["사진", "품명", "규격", "총보유수량", "대여가능", "승인대기", "대여중", "점검및고장"]
         df_summary = df_summary[cols]
         
-        # 🚫 미리보기(사진) 설정을 빼고 아주 깔끔하게 표만 띄웁니다.
-        st.dataframe(df_summary, use_container_width=True, hide_index=True)
+        # ✨ 사진 열이 포함된 데이터프레임 렌더링
+        st.dataframe(
+            df_summary, 
+            column_config={
+                "사진": st.column_config.ImageColumn("미리보기", help="구글 시트에 등록된 사진")
+            },
+            use_container_width=True, 
+            hide_index=True
+        )
 
     st.markdown("---")
     st.subheader("📋 개별 장비 상세 현황")
@@ -355,7 +344,7 @@ elif menu == "신규 대여 신청":
             st.dataframe(active_rentals_status[["신청ID", "품명", "규격", "이름"]], use_container_width=True, hide_index=True)
 
     with col_right:
-        # ✨ 1. 신청인 정보 입력 복구
+        # 👤 1. 신청인 정보 입력
         st.subheader("👤 1. 신청인 정보 입력")
         name = st.text_input("신청인 이름", placeholder="홍길동", key="input_name")
         student_id = st.text_input("학번", placeholder="20261234", key="input_student_id")
@@ -365,7 +354,7 @@ elif menu == "신규 대여 신청":
         shooting_loc = st.text_input("📍 촬영 장소", placeholder="예: 스튜디오 A", key="input_location")
         
         st.markdown("---")
-        # ✨ 2. 대여 품목 고르기 및 기타 기자재 힌트 추가
+        # 🛒 2. 대여 품목 고르기
         st.subheader("🛒 2. 대여 품목 고르기")
         extra_items = st.text_input("🎒 기타 기자재", placeholder="예) 삼각대 1, SD카드 2", key="input_extra")
 
@@ -470,7 +459,6 @@ elif menu == "품목별 대여 통계":
         
         st.dataframe(stats_df, use_container_width=True, hide_index=True)
         
-        # ✨ 알록달록한 통계 그래프 코드 완벽 복구
         st.markdown("---")
         st.subheader("📊 대여 빈도 시각화")
         
@@ -520,6 +508,47 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
         save_data(df_equip, df_rental)
         st.success("저장 완료!")
         st.rerun()
+
+    # ✨ 1. 기존 장비 사진 일괄 업데이트 기능 추가
+    st.markdown("---")
+    st.subheader("🖼️ 기존 장비 사진 업데이트 (일괄 적용)")
+    st.caption("선택한 규격을 가진 모든 장비의 사진이 썸네일로 한 번에 업데이트됩니다.")
+    
+    unique_specs = df_equip["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip().unique()
+    target_spec = st.selectbox("사진을 업데이트할 규격 선택", [s for s in unique_specs if s])
+    
+    col_img1, col_img2 = st.columns(2)
+    with col_img1:
+        update_file = st.file_uploader(f"[{target_spec}] 사진 파일 업로드", type=["jpg", "jpeg", "png"], key="update_img")
+    with col_img2:
+        update_url = st.text_input("또는 인터넷 이미지 URL 주소 직접 입력", placeholder="https://...", key="update_url")
+        
+    if st.button("💾 선택한 규격의 사진 일괄 업데이트", type="primary"):
+        if not update_file and not update_url.strip():
+            st.warning("업로드할 사진 파일이나 URL을 입력해주세요.")
+        else:
+            final_update_val = ""
+            if update_file is not None:
+                try:
+                    img = Image.open(update_file)
+                    if img.mode in ("RGBA", "P"): 
+                        img = img.convert("RGB")
+                    img.thumbnail((250, 250)) 
+                    buffered = io.BytesIO()
+                    img.save(buffered, format="JPEG", quality=80)
+                    img_str = base64.b64encode(buffered.getvalue()).decode()
+                    final_update_val = f"data:image/jpeg;base64,{img_str}"
+                except Exception as e:
+                    st.error(f"이미지 변환 오류: {e}")
+            elif update_url.strip():
+                final_update_val = update_url.strip()
+                
+            if final_update_val:
+                mask = df_equip["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip() == target_spec
+                df_equip.loc[mask, "이미지URL"] = final_update_val
+                save_data(df_equip, df_rental)
+                st.success(f"✅ '{target_spec}' 규격의 모든 장비 사진이 일괄 업데이트되었습니다!")
+                st.rerun()
             
     st.markdown("---")
     st.subheader("➕ 신규 기자재 추가 등록")
