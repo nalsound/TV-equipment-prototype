@@ -334,6 +334,7 @@ elif menu == "신규 대여 신청":
     col_left, col_right = st.columns([1, 1.2])
 
     with col_left:
+        st.subheader("📅 대여 일정 및 시간 선택")
         selected_dates = st.date_input("📆 대여 시작/반납 예정일", value=(datetime.today().date(), datetime.today().date()))
         col_time1, col_time2 = st.columns(2)
         with col_time1: start_time = st.time_input("⏰ 시작 시간", value=datetime.strptime("09:30", "%H:%M").time())
@@ -354,15 +355,20 @@ elif menu == "신규 대여 신청":
             st.dataframe(active_rentals_status[["신청ID", "품명", "규격", "이름"]], use_container_width=True, hide_index=True)
 
     with col_right:
-        name = st.text_input("신청인 이름", key="input_name")
-        student_id = st.text_input("학번", key="input_student_id")
-        phone = st.text_input("연락처", key="input_phone")
-        professor = st.text_input("담당 교수명", key="input_professor")
-        course_name = st.text_input("교과명", key="input_course")
-        shooting_loc = st.text_input("📍 촬영 장소", key="input_location")
-        extra_items = st.text_input("🎒 기타 기자재", key="input_extra")
-
+        # ✨ 1. 신청인 정보 입력 복구
+        st.subheader("👤 1. 신청인 정보 입력")
+        name = st.text_input("신청인 이름", placeholder="홍길동", key="input_name")
+        student_id = st.text_input("학번", placeholder="20261234", key="input_student_id")
+        phone = st.text_input("연락처", placeholder="010-XXXX-XXXX", key="input_phone")
+        professor = st.text_input("담당 교수명", placeholder="김교수", key="input_professor")
+        course_name = st.text_input("교과명", placeholder="예: 영상제작기초", key="input_course")
+        shooting_loc = st.text_input("📍 촬영 장소", placeholder="예: 스튜디오 A", key="input_location")
+        
         st.markdown("---")
+        # ✨ 2. 대여 품목 고르기 및 기타 기자재 힌트 추가
+        st.subheader("🛒 2. 대여 품목 고르기")
+        extra_items = st.text_input("🎒 기타 기자재", placeholder="예) 삼각대 1, SD카드 2", key="input_extra")
+
         df_avail_copy = df_equip[df_equip["현재상태"] == "대여가능"].copy()
         if df_avail_copy.empty:
             st.warning("⚠️ 대여 가능한 재고가 없습니다.")
