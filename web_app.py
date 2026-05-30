@@ -11,10 +11,31 @@ from streamlit_gsheets import GSheetsConnection
 EQUIPMENT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1DkU-1hCQuTApnnFxfZAh1MXulrD6HxPHY4P1QjhqJq0/edit?gid=1121757229#gid=1121757229"
 RENTAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hV8oaUlEIEA4rF6peg083Td_1cNZbWbl6BCcEkRpkT8/edit?gid=183591911#gid=183591911"
 
+# ==========================================
+# 🖼️ 기자재 사진 URL 매핑 딕셔너리
+# (추후 이 부분의 주소를 깃허브 이미지 주소로 변경해주시면 됩니다!)
+# ==========================================
+EQUIP_IMAGES = {
+    "Cinema Line FX3": "https://via.placeholder.com/150/555555/FFFFFF?text=FX3",
+    "PWX-FS5": "https://via.placeholder.com/150/555555/FFFFFF?text=FS5",
+    "PWX-Z90": "https://via.placeholder.com/150/555555/FFFFFF?text=Z90",
+    "A7S 3": "https://via.placeholder.com/150/555555/FFFFFF?text=A7S3",
+    "A7 4": "https://via.placeholder.com/150/555555/FFFFFF?text=A7+4",
+    "ZV-E10": "https://via.placeholder.com/150/555555/FFFFFF?text=ZV-E10",
+    "Gopro (Hero 7 Black)": "https://via.placeholder.com/150/555555/FFFFFF?text=GoPro",
+    "오즈모 포켓2": "https://via.placeholder.com/150/555555/FFFFFF?text=Osmo+Pocket2",
+    "OM5 오즈모 모바일": "https://via.placeholder.com/150/555555/FFFFFF?text=OM5",
+    "Sony 28-135": "https://via.placeholder.com/150/555555/FFFFFF?text=28-135mm",
+    "Sony 24-70": "https://via.placeholder.com/150/555555/FFFFFF?text=24-70mm",
+    "Sony 70-200": "https://via.placeholder.com/150/555555/FFFFFF?text=70-200mm",
+}
+DEFAULT_IMAGE_URL = "https://via.placeholder.com/150/CCCCCC/666666?text=No+Image"
+
 # --- 공지사항 텍스트 파일 및 기본 공지 내용 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
 
+# ✨ 공지사항 1번 항목 시간 추가 완료
 DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
 
 안녕하세요. 기자재실입니다. 
@@ -23,6 +44,7 @@ DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 �
 **1. 대여 신청 기한 및 승인 시간 안내**
 * 기자재 대여 신청은 대여 희망일 기준 **최소 3일 전 신청을 원칙**으로 합니다.
 * 접수된 기자재 대여 신청서는 **매일 오전 10시와 오후 2시**에 일괄적으로 확인 및 승인 처리됩니다.
+* **대여 및 반납 시간은 09:00~17:00까지**입니다.
 * 원활한 대여 준비를 위해 기한과 승인 시간을 고려하여 사전에 여유 있게 신청서를 제출해 주시기 바랍니다.
 
 **2. 신청서 외 장비 당일 현장 추가 불가**
@@ -110,14 +132,13 @@ def show_notice_dialog(notice_text):
 
 if not st.session_state.notice_agreed:
     show_notice_dialog(current_notice)
-    st.stop() # 동의하기 전까지 메인 시스템 로딩을 중지합니다.
+    st.stop()
 
 # ==========================================
 # 동의가 완료된 이후 실행되는 메인 시스템 로직
 # ==========================================
 st.title("🎬 기자재 관리 시스템")
 
-# 데이터 불러오기
 df_equip, df_rental = load_data()
 
 # --- 사이드바 ---
@@ -252,6 +273,7 @@ elif menu == "장비 목록 조회":
         df_summary_input = df_equip.copy()
         df_summary_input["품명"] = df_summary_input["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
         df_summary_input["규격"] = df_summary_input["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
+        
         df_summary = (
             df_summary_input.groupby(["품명", "규격"])
             .agg(
@@ -262,7 +284,18 @@ elif menu == "장비 목록 조회":
                 점검및고장=("현재상태", lambda x: x.isin(["고장", "수리중"]).sum()),
             ).reset_index()
         )
-        st.dataframe(df_summary, use_container_width=True, hide_index=True)
+        
+        # ✨ 사진 URL 매핑 (규격을 기준으로 딕셔너리에서 매칭)
+        df_summary.insert(0, "사진", df_summary["규격"].map(EQUIP_IMAGES).fillna(DEFAULT_IMAGE_URL))
+        
+        st.dataframe(
+            df_summary, 
+            column_config={
+                "사진": st.column_config.ImageColumn("미리보기", help="기자재 썸네일")
+            },
+            use_container_width=True, 
+            hide_index=True
+        )
 
     st.markdown("---")
     st.subheader("📋 개별 장비 상세 현황")
@@ -317,7 +350,6 @@ elif menu == "대여 신청 현황":
     if df_rental.empty:
         st.info("현재 대여 및 대기 중인 신청 내역이 없습니다.")
     else:
-        # 화면에 띄울 때만 '반납완료' 및 '승인거절' 내역 가리기
         active_rentals_display = df_rental[~df_rental["승인상태"].isin(["반납완료", "승인거절"])]
         display_rental = active_rentals_display.drop(columns=["학번", "연락처"], errors="ignore") if not is_admin else active_rentals_display.copy()
         
@@ -336,7 +368,6 @@ elif menu == "대여 신청 현황":
                 pending_rentals.insert(0, "선택", select_all_pending)
                 edited_pending = st.data_editor(pending_rentals[["선택", "신청ID", "이름", "장비ID", "품명", "규격", "대여날짜", "반납일자"]], column_config={"선택": st.column_config.CheckboxColumn("선택", default=False)}, hide_index=True, use_container_width=True)
                 
-                # 🚨 승인 버튼과 거절 버튼 분리 배치
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
                     if st.button("⭕ 선택한 장비 승인하기", type="primary", use_container_width=True):
@@ -356,7 +387,6 @@ elif menu == "대여 신청 현황":
                         if not selected_pending.empty:
                             target_ids = selected_pending["장비ID"].tolist()
                             
-                            # 거절 상태 변경 및 개인정보 즉시 파기
                             df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "승인거절"
                             
                             df_rental["학번"] = df_rental["학번"].astype(str)
@@ -364,7 +394,6 @@ elif menu == "대여 신청 현황":
                             df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
                             df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
                             
-                            # 장비는 다시 다른 사람이 대여할 수 있도록 대여가능 상태로 복구
                             df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여가능"
                             
                             save_data(df_equip, df_rental)
