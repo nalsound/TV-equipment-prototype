@@ -34,7 +34,7 @@ DEFAULT_IMAGE_URL = "https://via.placeholder.com/150/CCCCCC/666666?text=No+Image
 # --- 공지사항 및 로고 경로 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NOTICE_FILE = os.path.join(BASE_DIR, "notice.txt")
-LOGO_FILE = os.path.join(BASE_DIR, "CAU_symbol.png") # 💡 중앙대학교 심볼 이미지
+LOGO_FILE = os.path.join(BASE_DIR, "CAU_symbol.png") # 💡 중앙대학교 심볼 이미지 파일명
 
 DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 이용 안내
 
@@ -71,6 +71,12 @@ def load_data():
         df_equip = conn.read(spreadsheet=EQUIPMENT_SHEET_URL, ttl=300)
         df_rental = conn.read(spreadsheet=RENTAL_SHEET_URL, ttl=300)
 
+        # 데이터가 아예 비어있을 경우를 대비해 빈 데이터프레임 초기화
+        if df_equip is None or df_equip.empty:
+            df_equip = pd.DataFrame(columns=["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"])
+        if df_rental is None or df_rental.empty:
+            df_rental = pd.DataFrame(columns=["신청ID", "장비ID", "품명", "규격", "이름", "학번", "연락처", "담당교수", "교과명", "촬영장소", "기타기자재", "대여날짜", "반납일자", "승인상태"])
+
         required_equip_cols = ["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"]
         for col in required_equip_cols:
             if col not in df_equip.columns:
@@ -81,9 +87,12 @@ def load_data():
             if col not in df_rental.columns:
                 df_rental[col] = ""
 
+        # ✨ 장비 관리 탭 에러 수정: Streamlit data_editor 타입 충돌 방지를 위해 모든 결측치(NaN, Null)를 빈 문자열로 완벽하게 덮어씌움
         for df in [df_equip, df_rental]:
-            for col in df.select_dtypes(include=["object"]).columns:
+            df.fillna("", inplace=True)
+            for col in df.columns:
                 df[col] = df[col].astype(str).str.strip()
+                df[col] = df[col].replace("nan", "") # pandas 특유의 "nan" 문자열 찌꺼기 제거
                 
         return df_equip, df_rental
     except Exception as e:
@@ -101,7 +110,7 @@ def save_data(df_equip, df_rental):
         st.error(f"❌ 구글 시트에 데이터를 저장하는 중 오류가 발생했습니다: {e}")
 
 # ==========================================
-# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수
+# 🎨 아이콘 부여 및 HTML 생성 헬퍼 함수 (규격 우선, 글씨 안 잘리게 word-break 적용)
 def get_item_icon_html(name, spec, qty):
     """장비명과 규격을 분석하여 직관적인 아이콘과 HTML 태그를 반환합니다."""
     combined_name = f"{name} {spec}".lower()
@@ -447,7 +456,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- 3. 대여 신청 현황 (로고 깨짐 방지 및 하단 고정 레이아웃) ---
+# --- 3. 대여 신청 현황 (로고 깨짐 방지 롤백 및 하단 고정 레이아웃) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -539,7 +548,7 @@ elif menu == "대여 신청 현황":
                         items_html_str = "".join(items_html_list)
                         total_items = item_counts['수량'].sum()
                         
-                        # ✨ 심볼 로고 깨짐 방지: 이미지가 없거나 읽기 실패해도 절대 깨지지 않는 '순수 HTML/CSS 텍스트 기반' Fallback 제공
+                        # ✨ 심볼 로고 처리: 사용자가 올린 이미지가 없거나 읽기 실패해도 절대 깨지지 않는 '순수 HTML/CSS 기반' 텍스트를 최우선 Fallback으로 제공
                         logo_base64_str = ""
                         try:
                             if os.path.exists(LOGO_FILE):
@@ -551,7 +560,7 @@ elif menu == "대여 신청 현황":
                         if logo_base64_str:
                             cau_logo_html = f'<img src="data:image/png;base64,{logo_base64_str}" style="height: 55px; object-fit: contain;">'
                         else:
-                            # 이미지가 없을 경우 깨진 아이콘(X박스) 대신 노출될 완벽한 텍스트 기반 로고 대체제
+                            # 잘못 출력되었던 위키피디아 로고 삭제 후, 붓글씨 느낌의 텍스트로 대체하여 깨짐 방지
                             cau_logo_html = '<div style="font-family: \'Arial Black\', Impact, sans-serif; font-size: 55px; font-weight: 900; font-style: italic; color: #0056a9; letter-spacing: -4px; margin: 0; line-height: 1; padding-right: 10px;">CAU</div>'
 
                         # ✨ A4 1페이지 전체 영역을 차지하며, 하단 컨텐츠가 무조건 바닥에 고정되도록 Flex 레이아웃 적용
@@ -760,6 +769,10 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
     
     cols_order = ["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고"]
     
+    # ✨ 상태 옵션을 기존 값들을 포함해 동적으로 생성 (Selectbox 데이터 충돌 원천 차단)
+    unique_status = [s for s in df_equip["현재상태"].unique() if s.strip()]
+    status_options = list(set(["대여가능", "대여중", "고장", "수리중", "승인대기", ""] + unique_status))
+
     edited_equip_df = st.data_editor(
         df_equip[cols_order],
         column_config={
@@ -769,7 +782,7 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
             "현재상태": st.column_config.SelectboxColumn(
                 "현재상태 ✏️",
                 help="클릭하여 장비의 상태를 변경하세요",
-                options=["대여가능", "대여중", "고장", "수리중", "승인대기"],
+                options=status_options,
                 required=True
             ),
             "기자재자산번호": st.column_config.TextColumn(
