@@ -1,3 +1,10 @@
+작성해주신 기자재사진260530.csv 파일을 앱 실행 시 자동으로 읽어와서 장비 목록 조회 (품목 미리보기) 화면에 썸네일로 연결되도록 기존 코드를 완벽하게 업데이트했습니다.
+
+기존에 코드 안에 하드코딩되어 있던 EQUIP_IMAGES 딕셔너리를 제거하고, CSV 파일을 불러와 실시간으로 매핑 딕셔너리를 생성하는 자동화 함수(load_image_mapping)를 추가했습니다.
+
+아래 풀 코드를 복사해서 그대로 덮어씌우시면 됩니다! (단, 기자재사진260530.csv 파일은 반드시 이 파이썬 코드(.py)와 같은 폴더 안에 위치해야 합니다.)
+
+Python
 import os
 import re
 import base64
@@ -14,23 +21,38 @@ EQUIPMENT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1DkU-1hCQuTApnnFxf
 RENTAL_SHEET_URL = "https://docs.google.com/spreadsheets/d/1hV8oaUlEIEA4rF6peg083Td_1cNZbWbl6BCcEkRpkT8/edit?gid=183591911#gid=183591911"
 
 # ==========================================
-# 🖼️ 기자재 사진 URL 매핑 딕셔너리
+# 🖼️ 기자재 사진 URL 매핑 (CSV 파일에서 자동 연동)
 # ==========================================
-EQUIP_IMAGES = {
-    "Cinema Line FX3": "https://via.placeholder.com/150/555555/FFFFFF?text=FX3",
-    "PWX-FS5": "https://via.placeholder.com/150/555555/FFFFFF?text=FS5",
-    "PWX-Z90": "https://via.placeholder.com/150/555555/FFFFFF?text=Z90",
-    "A7S 3": "https://via.placeholder.com/150/555555/FFFFFF?text=A7S3",
-    "A7 4": "https://via.placeholder.com/150/555555/FFFFFF?text=A7+4",
-    "ZV-E10": "https://via.placeholder.com/150/555555/FFFFFF?text=ZV-E10",
-    "Gopro (Hero 7 Black)": "https://via.placeholder.com/150/555555/FFFFFF?text=GoPro",
-    "오즈모 포켓2": "https://via.placeholder.com/150/555555/FFFFFF?text=Osmo+Pocket2",
-    "OM5 오즈모 모바일": "https://via.placeholder.com/150/555555/FFFFFF?text=OM5",
-    "Sony 28-135": "https://via.placeholder.com/150/555555/FFFFFF?text=28-135mm",
-    "Sony 24-70": "https://via.placeholder.com/150/555555/FFFFFF?text=24-70mm",
-    "Sony 70-200": "https://via.placeholder.com/150/555555/FFFFFF?text=70-200mm",
-}
 DEFAULT_IMAGE_URL = "https://via.placeholder.com/150/CCCCCC/666666?text=No+Image"
+
+@st.cache_data
+def load_image_mapping():
+    """CSV 파일에서 사진 URL 매핑 데이터를 불러옵니다."""
+    image_dict = {}
+    csv_file = "기자재사진260530.csv"
+    
+    if os.path.exists(csv_file):
+        try:
+            # 인코딩 문제 방지를 위해 utf-8 시도 후 실패 시 cp949(한국어 윈도우 기본) 적용
+            try:
+                df_img = pd.read_csv(csv_file, encoding='utf-8')
+            except UnicodeDecodeError:
+                df_img = pd.read_csv(csv_file, encoding='cp949')
+                
+            # CSV에 '규격'과 '이미지URL' 열이 있는지 확인
+            if "규격" in df_img.columns and "이미지URL" in df_img.columns:
+                df_img["규격"] = df_img["규격"].astype(str).str.strip()
+                df_img["이미지URL"] = df_img["이미지URL"].astype(str).str.strip()
+                
+                # 규격을 Key로, 이미지 URL을 Value로 하는 딕셔너리 생성
+                image_dict = dict(zip(df_img["규격"], df_img["이미지URL"]))
+        except Exception as e:
+            st.error(f"이미지 매핑 CSV 파일을 읽는 중 오류가 발생했습니다: {e}")
+            
+    return image_dict
+
+# 앱 시작 시 CSV 데이터를 한 번만 읽어와 캐싱 적용
+EQUIP_IMAGES = load_image_mapping()
 
 # --- 공지사항 경로 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -260,7 +282,7 @@ elif menu == "기자재 이용 규정":
     (단, 촬영자에 한해서 본교의 졸업생인 경우 전임 교수 승인 하에 가능)
     8. 기자재를 신청하거나 이용하는 학생이 징계 중인 학생인 경우.
 
-    **제10조 【기자재 파 파손 및 분실 보상 절차】**
+    **제10조 【기자재 파손 및 분실 보상 절차】**
     1. 기자재 담당에게 해당 내용 보고.
     2. 연출자는 손망실 보고서를 작성하여 기자재 담당에게 제출 후 해당 장비 보상.
     3. 당시 정황을 따져 징계수위 결정 후 책임자에게 징계내용 통보.
@@ -315,6 +337,7 @@ elif menu == "장비 목록 조회":
             ).reset_index()
         )
         
+        # ✨ CSV에서 로드된 EQUIP_IMAGES 딕셔너리를 기반으로 사진 매핑 처리 (매핑이 없으면 기본 이미지 표시)
         df_summary.insert(0, "사진", df_summary["규격"].map(EQUIP_IMAGES).fillna(DEFAULT_IMAGE_URL))
         
         st.dataframe(
@@ -533,7 +556,7 @@ elif menu == "대여 신청 현황":
             st.markdown("---")
             st.subheader("🖨️ 관리자 전용 - 신청서 A4 인쇄 (팝업 전용)")
             
-            # ✨ [핵심 변경] 파기된 데이터(반납 등)가 목록에 절대 노출되지 않도록 필터 강화
+            # ✨ 파기된 데이터(반납 등)가 목록에 절대 노출되지 않도록 필터 강화
             valid_print_df = df_rental[~df_rental["승인상태"].isin(["승인거절", "반납완료"])].copy()
             valid_rental_ids = valid_print_df[valid_print_df["신청ID"] != ""]["신청ID"].unique().tolist()
             
