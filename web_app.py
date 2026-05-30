@@ -446,7 +446,7 @@ elif menu == "신규 대여 신청":
                             st.session_state.submit_success = True
                             st.rerun()
 
-# --- ✨ 3. 대여 신청 현황 (셀 병합 효과 적용 완료) ---
+# --- ✨ 3. 대여 신청 현황 (오류 수정 완료) ---
 elif menu == "대여 신청 현황":
     st.header("📋 기자재 대여 신청 현황")
     if df_rental.empty or df_rental["품명"].iloc[0] == "":
@@ -470,6 +470,8 @@ elif menu == "대여 신청 현황":
         # 중복된 행의 지정된 컬럼들을 빈칸("")으로 덮어씌움 (셀 병합 시각적 효과)
         for col in cols_to_merge:
             if col in display_rental.columns:
+                # ✨ 오류 수정: 데이터 타입을 문자열(str)로 변환한 뒤에 빈 문자열 할당
+                display_rental[col] = display_rental[col].astype(str)
                 display_rental.loc[is_duplicate, col] = ""
 
         # 관리자 여부에 따른 개인정보 열 숨김 처리
