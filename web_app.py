@@ -52,6 +52,7 @@ def load_data():
 
         if df_equip is None or df_equip.empty:
             df_equip = pd.DataFrame(columns=["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고", "이미지URL"])
+      
         if df_rental is None or df_rental.empty:
             df_rental = pd.DataFrame(columns=["신청ID", "장비ID", "품명", "규격", "이름", "학번", "연락처", "담당교수", "교과명", "촬영장소", "기타기자재", "대여날짜", "반납일자", "승인상태"])
 
@@ -234,8 +235,7 @@ elif menu == "기자재 이용 규정":
     3. 대여 당일 시간을 지키지 않은 경우.
     4. 연출자 및 메인 스텝의 기자재 운용 능력이 부족하다고 판단되는 경우.
     5. 기자재 담당 교수의 승인 없이 경제적 이익을 목적으로 하는 프로젝트인 경우.
-    6. 연출자가 본교 학생이 아닌 경우.
-    (단, 촬영자에 한해서 본교의 졸업생인 경우 전임 교수 승인 하에 가능)
+    6. 연출자가 본교 학생이 아닌 경우. (단, 촬영자에 한해서 본교의 졸업생인 경우 전임 교수 승인 하에 가능)
     8. 기자재를 신청하거나 이용하는 학생이 징계 중인 학생인 경우.
 
     **제10조 【기자재 파손 및 분실 보상 절차】**
@@ -353,6 +353,7 @@ elif menu == "신규 대여 신청":
         st.markdown("---")
         st.subheader("📊 실시간 대여 현황")
         active_rentals_status = df_rental[df_rental["승인상태"] == "대여중"]
+       
         if active_rentals_status.empty: 
             st.info("현재 대여 중인 장비가 없습니다.")
         else: 
@@ -363,6 +364,7 @@ elif menu == "신규 대여 신청":
         name = st.text_input("신청인 이름", placeholder="홍길동", key="input_name")
         student_id = st.text_input("학번", placeholder="20261234", key="input_student_id")
         phone = st.text_input("연락처", placeholder="010-XXXX-XXXX", key="input_phone")
+ 
         professor = st.text_input("담당 교수명", placeholder="김교수", key="input_professor")
         course_name = st.text_input("교과명", placeholder="예: 영상제작기초", key="input_course")
         shooting_loc = st.text_input("📍 촬영 장소", placeholder="예: 스튜디오 A", key="input_location")
@@ -372,6 +374,7 @@ elif menu == "신규 대여 신청":
         extra_items = st.text_input("🎒 기타 기자재", placeholder="예) 삼각대 1, SD카드 2", key="input_extra")
 
         df_avail_copy = df_equip[df_equip["현재상태"] == "대여가능"].copy()
+ 
         if df_avail_copy.empty:
             st.warning("⚠️ 대여 가능한 재고가 없습니다.")
         else:
@@ -379,6 +382,7 @@ elif menu == "신규 대여 신청":
             df_avail_copy["규격_clean"] = df_avail_copy["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
             df_grouped_avail = df_avail_copy.groupby(["품명_clean", "규격_clean"]).size().reset_index(name="가능수량")
             df_grouped_avail.insert(0, "선택", False)
+       
             df_grouped_avail["신청수량"] = 1
 
             edited_avail = st.data_editor(df_grouped_avail, column_config={"선택": st.column_config.CheckboxColumn("체크", default=False), "품명_clean": "품명", "규격_clean": "규격", "가능수량": "재고 수량", "신청수량": st.column_config.NumberColumn("신청 수량", min_value=1, step=1)}, disabled=["품명_clean", "규격_clean", "가능수량"], hide_index=True, use_container_width=True)
@@ -386,6 +390,7 @@ elif menu == "신규 대여 신청":
             if st.button("🛒 선택한 항목 장바구니 담기", use_container_width=True):
                 selected_items = edited_avail[edited_avail["선택"] == True]
                 for _, row in selected_items.iterrows():
+ 
                     p_c, s_c, req_qty = row["품명_clean"], row["규격_clean"], row["신청수량"]
                     found = False
                     for item in st.session_state.cart:
@@ -393,6 +398,7 @@ elif menu == "신규 대여 신청":
                             item["수량"] += req_qty
                             found = True
                     if not found: st.session_state.cart.append({"품명_clean": p_c, "규격_clean": s_c, "수량": req_qty})
+           
                 st.rerun()
 
         if st.session_state.cart:
@@ -400,11 +406,13 @@ elif menu == "신규 대여 신청":
             st.dataframe(pd.DataFrame(st.session_state.cart).rename(columns={"품명_clean":"품명", "규격_clean":"규격", "수량":"수량"}), hide_index=True)
             if st.button("🚀 최종 대여 신청 제출", type="primary", use_container_width=True):
                 if not name.strip() or not student_id.strip(): st.error("❌ 이름과 학번을 입력해주세요.")
+            
                 else:
                     prefix = f"REQ-{datetime.today().strftime('%Y%m')}-"
                     same_month = df_rental[df_rental["신청ID"].astype(str).str.startswith(prefix, na=False)]
                     new_num = f"{len(same_month) + 1:03d}"
                     new_req_id = prefix + new_num
+   
                     new_rows = []
 
                     for cart_item in st.session_state.cart:
@@ -412,6 +420,7 @@ elif menu == "신규 대여 신청":
                         matching = df_equip[(df_equip["현재상태"] == "대여가능") & (df_equip["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip() == p_c) & (df_equip["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip() == s_c)].head(qty)
                         for _, item in matching.iterrows():
                             new_rows.append({"신청ID": new_req_id, "장비ID": item["장비ID"], "품명": item["품명"], "규격": item["규격"], "이름": name.strip(), "학번": student_id.strip(), "연락처": phone.strip(), "담당교수": professor.strip(), "교과명": course_name.strip(), "촬영장소": shooting_loc.strip(), "기타기자재": extra_items.strip(), "대여날짜": start_date_str, "반납일자": end_date_str, "승인상태": "승인대기"})
+     
                             df_equip.loc[df_equip["장비ID"] == item["장비ID"], "현재상태"] = "승인대기"
 
                     df_rental = pd.concat([df_rental, pd.DataFrame(new_rows)], ignore_index=True) if not df_rental.empty else pd.DataFrame(new_rows)
@@ -434,6 +443,7 @@ elif menu == "대여 신청 현황":
             pending = df_rental[df_rental["승인상태"].isin(["승인대기", "대기중"])].copy()
             if not pending.empty:
                 pending.insert(0, "선택", False)
+           
                 edited_pending = st.data_editor(pending, hide_index=True, use_container_width=True)
                 if st.button("⭕ 승인하기", type="primary"):
                     sel = edited_pending[edited_pending["선택"] == True]
@@ -442,11 +452,13 @@ elif menu == "대여 신청 현황":
                         df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "대여중"
                         df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여중"
                         save_data(df_equip, df_rental)
+                     
                         st.rerun()
                 if st.button("❌ 거절하기"):
                     sel = edited_pending[edited_pending["선택"] == True]
                     if not sel.empty:
                         target_ids = sel["장비ID"].tolist()
+       
                         df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "승인거절"
                         df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
                         df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
@@ -470,10 +482,12 @@ elif menu == "대여 신청 현황":
                         p_first = print_rows.iloc[0]
                         
                         item_counts = print_rows.groupby(["품명", "규격"]).size().reset_index(name="수량")
+                      
                         items_html_list = []
                         for _, r in item_counts.iterrows():
                             items_html_list.append(get_item_icon_html(r['품명'], r['규격'], r['수량']))
                         items_html_str = "".join(items_html_list)
+            
                         total_items = item_counts['수량'].sum()
 
                         html_content = f"""
@@ -528,25 +542,26 @@ elif menu == "대여 신청 현황":
                                         <li><b>책임사항:</b> 사용자의 부주의로 인한 기자재의 손상, 분실에 대해서는 사용자가 복구, 또는 변상해야 합니다. 반납 시 기자재의 이상유무를 확인 받으시기 바랍니다.</li>
                                         <li><b>금지사항:</b> 강의 및 실습 이외의 개인적인 용도의 사용</li>
                                     </ol>
+            
                                     <p style="font-weight:bold; margin:8px 0 4px 0;">◎ 연체 및 책임사항 불이행에 대한 조치</p>
                                     <ol style="margin:0; padding-left:20px;">
                                         <li><b>장기간의 연체, 손상 및 분실에 대한 복구 또는 변상 불이행:</b> 반납 시까지 또는 복구 및 변상 완료 시까지 제 급여의 지급 보류, 제증명 발급 보류, 학위증서의 전달이 보류될 수 있습니다.</li>
                                         <li><b>용도 이외의 사용:</b> 이후 기자재 대여 금함.</li>
                                     </ol>
                                 </div>
-                                
+                                 
                                 <div style="margin-top:15px; text-align:center; font-size:14px; font-weight:bold;">
                                     <p>위의 준수사항을 수락하며 기자재의 대여를 신청합니다.</p>
                                 </div>
-                                
+                                 
                                 <div style="margin-top:15px; text-align:center; font-size:14px;">
                                     <span style="margin-right:20px;">20</span><span style="margin-right:20px;">년</span><span style="margin-right:20px;">월</span><span>일</span>
                                 </div>
-                                
+                                 
                                 <div style="margin-top:15px; text-align:right; font-size:14px; padding-right:50px;">
                                     <p style="margin-bottom:10px;">신청인 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
                                     <p>승인자 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
-                                </div>
+                                 </div>
                                 
                                 <div style="margin-top: 15px; border-top: 2px dashed #000; padding-top: 15px; text-align: left; font-family: 'Malgun Gothic', sans-serif; line-height: 1.3;">
                                     <p style="margin: 0; font-size: 13px; font-weight: 800;">다빈치캠퍼스 신청서 접수 및 문의</p>
@@ -558,7 +573,7 @@ elif menu == "대여 신청 현황":
                         """
                         
                         st.markdown("<div style='background-color:#f1f8e9; padding:15px; border-radius:8px; border:1px solid #c5e1a5; color:#2e7d32; font-weight:bold; margin-bottom:15px;'>✅ 준비 완료! 하단 버튼을 클릭하면 독립된 A4 사이즈 팝업이 열리며 즉시 인쇄 화면이 나타납니다. (반드시 브라우저 팝업 차단을 해제해주세요)</div>", unsafe_allow_html=True)
-                        
+             
                         full_iframe_html = """
                         <!DOCTYPE html>
                         <html>
@@ -576,7 +591,7 @@ elif menu == "대여 신청 현황":
                                 __HTML_CONTENT_PLACEHOLDER__
                             </div>
                             
-                            <script>
+                             <script>
                                 function triggerPrint() {
                                     const printData = document.getElementById('print-source-data').innerHTML;
                                     const printWindow = window.open('', '_blank', 'width=850,height=950');
@@ -609,37 +624,89 @@ elif menu == "대여 신청 현황":
 elif menu == "품목별 대여 통계":
     st.header("📈 품목별 대여 통계")
     valid_rentals = df_rental[df_rental["품명"] != ""].copy()
+    
     if valid_rentals.empty:
         st.info("💡 아직 누적된 대여 기록이 없어 통계를 산출할 수 없습니다.")
     else:
         st.markdown("학생들이 가장 많이 대여한 인기 기자재 순위를 확인하세요!")
         
-        valid_rentals["품명_clean"] = valid_rentals["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
-        valid_rentals["규격_clean"] = valid_rentals["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
+        # 날짜 기반 연도 및 학기 변환 함수
+        def parse_date_to_semester(date_str):
+            try:
+                dt = pd.to_datetime(date_str)
+                year = dt.year
+                month = dt.month
+                day = dt.day
+                
+                # 1학기: 3월 2일 ~ 6월 30일
+                if (month == 3 and day >= 2) or (month in [4, 5, 6]):
+                    return str(year), "1학기"
+                # 2학기: 9월 1일 ~ 12월 31일
+                elif (month == 9) or (month in [10, 11, 12]):
+                    return str(year), "2학기"
+                # 여름방학: 7월 1일 ~ 8월 31일
+                elif month in [7, 8]:
+                    return str(year), "여름방학"
+                # 겨울방학: 1월, 2월, 3월 1일
+                else:
+                    return str(year), "겨울방학"
+            except:
+                return "미상", "미상"
+
+        # 데이터프레임에 파싱된 연도, 학기 컬럼 추가
+        valid_rentals[["연도", "학기구분"]] = valid_rentals["대여날짜"].apply(lambda x: pd.Series(parse_date_to_semester(x)))
+
+        # 하위 폴더(expander) 레이아웃 생성
+        with st.expander("📅 연도 및 학기별 통계 필터 (클릭하여 열기)", expanded=False):
+            st.markdown("특정 연도와 학기의 대여 통계만 필터링하여 조회할 수 있습니다.")
+            col_y, col_s = st.columns(2)
+            
+            # 조회 가능한 연도 목록 추출
+            available_years = ["전체"] + sorted([y for y in valid_rentals["연도"].unique() if y != "미상"], reverse=True)
+            selected_year = col_y.selectbox("조회할 연도 선택", available_years)
+            
+            # 학기 목록
+            available_semesters = ["전체", "1학기", "2학기", "여름방학", "겨울방학"]
+            selected_semester = col_s.selectbox("조회할 학기/기간 선택", available_semesters)
+
+        # 사용자가 선택한 필터 반영
+        filtered_rentals = valid_rentals.copy()
+        if selected_year != "전체":
+            filtered_rentals = filtered_rentals[filtered_rentals["연도"] == selected_year]
+        if selected_semester != "전체":
+            filtered_rentals = filtered_rentals[filtered_rentals["학기구분"] == selected_semester]
+
+        if filtered_rentals.empty:
+            st.warning("⚠️ 선택하신 조건(연도/학기)에 해당하는 대여 기록이 없습니다.")
+        else:
+            filtered_rentals["품명_clean"] = filtered_rentals["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
+            filtered_rentals["규격_clean"] = filtered_rentals["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
+            
+            stats_df = filtered_rentals.groupby(["품명_clean", "규격_clean"]).size().reset_index(name="누적 대여 횟수")
+            stats_df = stats_df.rename(columns={"품명_clean": "품명", "규격_clean": "규격"})
+            stats_df = stats_df.sort_values(by="누적 대여 횟수", ascending=False).reset_index(drop=True)
         
-        stats_df = valid_rentals.groupby(["품명_clean", "규격_clean"]).size().reset_index(name="누적 대여 횟수")
-        stats_df = stats_df.rename(columns={"품명_clean": "품명", "규격_clean": "규격"})
-        stats_df = stats_df.sort_values(by="누적 대여 횟수", ascending=False).reset_index(drop=True)
-        
-        st.dataframe(stats_df, use_container_width=True, hide_index=True)
-        
-        st.markdown("---")
-        st.subheader("📊 대여 빈도 시각화")
-        
-        chart = alt.Chart(stats_df).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
-            x=alt.X('규격', sort='-y', axis=alt.Axis(labelAngle=-45, title="기자재 규격")),
-            y=alt.Y('누적 대여 횟수', axis=alt.Axis(tickMinStep=1, title="대여 횟수 (건)")),
-            color=alt.Color('품명', legend=alt.Legend(orient="bottom", title="품목 (품명)")),
-            tooltip=['품명', '규격', '누적 대여 횟수']
-        ).properties(
-            height=400
-        ).configure_axis(
-            grid=False
-        ).configure_view(
-            strokeWidth=0
-        )
-        
-        st.altair_chart(chart, use_container_width=True)
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+            
+            st.markdown("---")
+            filter_title = f"({selected_year} / {selected_semester})" if (selected_year != '전체' or selected_semester != '전체') else "(전체 누적)"
+            st.subheader(f"📊 대여 빈도 시각화 {filter_title}")
+            
+            chart = alt.Chart(stats_df).mark_bar(cornerRadiusTopLeft=5, cornerRadiusTopRight=5).encode(
+                x=alt.X('규격', sort='-y', axis=alt.Axis(labelAngle=-45, title="기자재 규격")),
+                y=alt.Y('누적 대여 횟수', axis=alt.Axis(tickMinStep=1, title="대여 횟수 (건)")),
+                color=alt.Color('품명', legend=alt.Legend(orient="bottom", title="품목 (품명)")),
+                tooltip=['품명', '규격', '누적 대여 횟수']
+            ).properties(
+                height=400
+            ).configure_axis(
+                grid=False
+            ).configure_view(
+                strokeWidth=0
+            )
+           
+            st.altair_chart(chart, use_container_width=True)
+
 
 # --- 5. 반납 처리 ---
 elif menu == "기자재 반납 처리":
@@ -650,6 +717,7 @@ elif menu == "기자재 반납 처리":
         edited_active = st.data_editor(active_rentals, hide_index=True)
         if st.button("👍 반납 확인 (기록 완전 삭제)", type="primary"):
             sel = edited_active[edited_active["선택"] == True]
+     
             if not sel.empty:
                 t_ids = sel["장비ID"].tolist()
                 df_equip.loc[df_equip["장비ID"].isin(t_ids), "현재상태"] = "대여가능"
