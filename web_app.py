@@ -37,21 +37,16 @@ DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 �
 
 **3. 기자재 이용 규정 숙지 의무**
 * 좌측 메뉴의 **[기자재 이용 규정]**을 반드시 정독해 주시기 바랍니다.
-* **[데이터 유실 면책]** 
-    대여한 저장매체(SD카드, 리더기 등)에 기록된 데이터의 유실 및 훼손에 대해 기자재실은 일절 책임지지 않습니다. 
+* **[데이터 유실 면책]** 대여한 저장매체(SD카드, 리더기 등)에 기록된 데이터의 유실 및 훼손에 대해 기자재실은 일절 책임지지 않습니다. 
     대여자는 반납 전 반드시 개인 데이터를 자체적으로 백업해야 합니다.
-* **[장비 결함 및 촬영 차질 면책]** 
-    대여 기간 중 발생하는 예기치 못한 장비 고장, 결함, 배터리 방전 등으로 인한 촬영 지연 및 프로젝트상의 금전적/비금전적 손실에 대해 
+* **[장비 결함 및 촬영 차질 면책]** 대여 기간 중 발생하는 예기치 못한 장비 고장, 결함, 배터리 방전 등으로 인한 촬영 지연 및 프로젝트상의 금전적/비금전적 손실에 대해 
     기자재실은 어떠한 보상이나 책임도 지지 않습니다.
     (대여 수령 시 장비의 정상 작동 여부를 반드시 직접 확인하시기 바랍니다.)
-* **[안전사고 책임]** 
-     기자재 운용 및 이동 중 발생하는 모든 물리적 안전사고 및 타인의 재물 손괴에 대한 책임은 전적으로 대여 당사자(연출자 및 촬영자)에게 있습니다.
+* **[안전사고 책임]** 기자재 운용 및 이동 중 발생하는 모든 물리적 안전사고 및 타인의 재물 손괴에 대한 책임은 전적으로 대여 당사자(연출자 및 촬영자)에게 있습니다.
 
 **4. ⚠️ 개인정보 수집 동의 및 면책 안내 (필독)**
-* **[개인정보 보호]** 
-     대여 신청 시 입력하시는 학번과 연락처는 대여 중 미반납 또는 긴급 상황 발생 시 연락 용도로만 활용되며, 반납 완료(승인) 시 즉각적이고 영구적으로 파기됩니다.
-* **[학생 부주의로 인한 개인정보 유출 면책]** 
-     실습실 등 공용 PC 사용 후 브라우저 미종료, 개인 기기 해킹 등 **학생 본인의 부주의로 인해 발생한 개인정보 유출 사고에 대하여 기자재실은 일체의 민·형사상 책임을 지지 않습니다.
+* **[개인정보 보호]** 대여 신청 시 입력하시는 학번과 연락처는 대여 중 미반납 또는 긴급 상황 발생 시 연락 용도로만 활용되며, 반납 완료(승인) 시 즉각적이고 영구적으로 파기됩니다.
+* **[학생 부주의로 인한 개인정보 유출 면책]** 실습실 등 공용 PC 사용 후 브라우저 미종료, 개인 기기 해킹 등 **학생 본인의 부주의로 인해 발생한 개인정보 유출 사고에 대하여 기자재실은 일체의 민·형사상 책임을 지지 않습니다.
   ** (공용 PC 사용 후 반드시 창을 닫아주시기 바랍니다.)
 
 
@@ -67,7 +62,7 @@ def load_data():
 
         if df_equip is None or df_equip.empty:
             df_equip = pd.DataFrame(columns=["장비ID", "품명", "규격", "현재상태", "기자재자산번호", "비고", "이미지URL"])
-      
+       
         if df_rental is None or df_rental.empty:
             df_rental = pd.DataFrame(columns=["신청ID", "장비ID", "품명", "규격", "이름", "학번", "연락처", "담당교수", "교과명", "촬영장소", "기타기자재", "대여날짜", "반납일자", "승인상태"])
 
@@ -368,7 +363,7 @@ elif menu == "신규 대여 신청":
         st.markdown("---")
         st.subheader("📊 실시간 대여 현황")
         active_rentals_status = df_rental[df_rental["승인상태"] == "대여중"]
-       
+        
         if active_rentals_status.empty: 
             st.info("현재 대여 중인 장비가 없습니다.")
         else: 
@@ -397,7 +392,7 @@ elif menu == "신규 대여 신청":
             df_avail_copy["규격_clean"] = df_avail_copy["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip()
             df_grouped_avail = df_avail_copy.groupby(["품명_clean", "규격_clean"]).size().reset_index(name="가능수량")
             df_grouped_avail.insert(0, "선택", False)
-       
+        
             df_grouped_avail["신청수량"] = 1
 
             edited_avail = st.data_editor(df_grouped_avail, column_config={"선택": st.column_config.CheckboxColumn("체크", default=False), "품명_clean": "품명", "규격_clean": "규격", "가능수량": "재고 수량", "신청수량": st.column_config.NumberColumn("신청 수량", min_value=1, step=1)}, disabled=["품명_clean", "규격_clean", "가능수량"], hide_index=True, use_container_width=True)
@@ -413,7 +408,7 @@ elif menu == "신규 대여 신청":
                             item["수량"] += req_qty
                             found = True
                     if not found: st.session_state.cart.append({"품명_clean": p_c, "규격_clean": s_c, "수량": req_qty})
-           
+            
                 st.rerun()
 
         if st.session_state.cart:
@@ -427,7 +422,7 @@ elif menu == "신규 대여 신청":
                     same_month = df_rental[df_rental["신청ID"].astype(str).str.startswith(prefix, na=False)]
                     new_num = f"{len(same_month) + 1:03d}"
                     new_req_id = prefix + new_num
-   
+    
                     new_rows = []
 
                     for cart_item in st.session_state.cart:
@@ -435,7 +430,7 @@ elif menu == "신규 대여 신청":
                         matching = df_equip[(df_equip["현재상태"] == "대여가능") & (df_equip["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip() == p_c) & (df_equip["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip() == s_c)].head(qty)
                         for _, item in matching.iterrows():
                             new_rows.append({"신청ID": new_req_id, "장비ID": item["장비ID"], "품명": item["품명"], "규격": item["규격"], "이름": name.strip(), "학번": student_id.strip(), "연락처": phone.strip(), "담당교수": professor.strip(), "교과명": course_name.strip(), "촬영장소": shooting_loc.strip(), "기타기자재": extra_items.strip(), "대여날짜": start_date_str, "반납일자": end_date_str, "승인상태": "승인대기"})
-     
+      
                             df_equip.loc[df_equip["장비ID"] == item["장비ID"], "현재상태"] = "승인대기"
 
                     df_rental = pd.concat([df_rental, pd.DataFrame(new_rows)], ignore_index=True) if not df_rental.empty else pd.DataFrame(new_rows)
@@ -457,8 +452,10 @@ elif menu == "대여 신청 현황":
             st.subheader("🔓 관리자 전용 - 개별 대여 승인 및 거절 처리")
             pending = df_rental[df_rental["승인상태"].isin(["승인대기", "대기중"])].copy()
             if not pending.empty:
-                pending.insert(0, "선택", False)
-           
+                # [수정됨] 일괄 선택(전체 선택) 체크박스 기능 추가
+                select_all_pending = st.checkbox("☑️ 일괄 선택 (전체 선택)", key="select_all_pending")
+                pending.insert(0, "선택", select_all_pending)
+            
                 edited_pending = st.data_editor(pending, hide_index=True, use_container_width=True)
                 if st.button("⭕ 승인하기", type="primary"):
                     sel = edited_pending[edited_pending["선택"] == True]
@@ -467,13 +464,13 @@ elif menu == "대여 신청 현황":
                         df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "대여중"
                         df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여중"
                         save_data(df_equip, df_rental)
-                     
+                      
                         st.rerun()
                 if st.button("❌ 거절하기"):
                     sel = edited_pending[edited_pending["선택"] == True]
                     if not sel.empty:
                         target_ids = sel["장비ID"].tolist()
-       
+        
                         df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "승인거절"
                         df_rental.loc[df_rental["장비ID"].isin(target_ids), "학번"] = "파기됨"
                         df_rental.loc[df_rental["장비ID"].isin(target_ids), "연락처"] = "파기됨"
@@ -719,7 +716,7 @@ elif menu == "품목별 대여 통계":
             ).configure_view(
                 strokeWidth=0
             )
-           
+            
             st.altair_chart(chart, use_container_width=True)
 
 
@@ -728,11 +725,14 @@ elif menu == "기자재 반납 처리":
     st.header("🔄 기자재 반납 처리 (관리자 전용)")
     active_rentals = df_rental[df_rental["승인상태"] == "대여중"].copy()
     if not active_rentals.empty:
-        active_rentals.insert(0, "선택", False)
+        # [수정됨] 일괄 선택(전체 선택) 체크박스 기능 추가
+        select_all_return = st.checkbox("☑️ 일괄 선택 (전체 선택)", key="select_all_return")
+        active_rentals.insert(0, "선택", select_all_return)
+        
         edited_active = st.data_editor(active_rentals, hide_index=True)
         if st.button("👍 반납 확인 (기록 완전 삭제)", type="primary"):
             sel = edited_active[edited_active["선택"] == True]
-     
+      
             if not sel.empty:
                 t_ids = sel["장비ID"].tolist()
                 df_equip.loc[df_equip["장비ID"].isin(t_ids), "현재상태"] = "대여가능"
