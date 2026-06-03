@@ -37,20 +37,17 @@ DEFAULT_NOTICE = """### 📢 글로벌예술학부 기자재 대여 시스템 �
 
 **3. 기자재 이용 규정 숙지 의무**
 * 좌측 메뉴의 **[기자재 이용 규정]**을 반드시 정독해 주시기 바랍니다.
-* **[데이터 유실 면책]** 대여한 저장매체(SD카드, 리더기 등)에 기록된 데이터의 유실 및 훼손에 대해 기자재실은 일절 책임지지 않습니다. 
-    대여자는 반납 전 반드시 개인 데이터를 자체적으로 백업해야 합니다.
-* **[장비 결함 및 촬영 차질 면책]** 대여 기간 중 발생하는 예기치 못한 장비 고장, 결함, 배터리 방전 등으로 인한 촬영 지연 및 프로젝트상의 금전적/비금전적 손실에 대해 
-    기자재실은 어떠한 보상이나 책임도 지지 않습니다.
-    (대여 수령 시 장비의 정상 작동 여부를 반드시 직접 확인하시기 바랍니다.)
+* **[데이터 유실 면책]** 대여한 저장매체(SD카드, 리더기 등)에 기록된 데이터의 유실 및 훼손에 대해 기자재실은 일절 책임지지 않습니다. 대여자는 반납 전 반드시 개인 데이터를 자체적으로 백업해야 합니다.
+* **[장비 결함 및 촬영 차질 면책]** 대여 기간 중 발생하는 예기치 못한 장비 고장, 결함, 배터리 방전 등으로 인한 촬영 지연 및 프로젝트상의 금전적/비금전적 손실에 대해 기자재실은 어떠한 보상이나 책임도 지지 않습니다. (대여 수령 시 장비의 정상 작동 여부를 반드시 직접 확인하시기 바랍니다.)
 * **[안전사고 책임]** 기자재 운용 및 이동 중 발생하는 모든 물리적 안전사고 및 타인의 재물 손괴에 대한 책임은 전적으로 대여 당사자(연출자 및 촬영자)에게 있습니다.
 
 **4. ⚠️ 개인정보 수집 동의 및 면책 안내 (필독)**
 * **[개인정보 보호]** 대여 신청 시 입력하시는 학번과 연락처는 대여 중 미반납 또는 긴급 상황 발생 시 연락 용도로만 활용되며, 반납 완료(승인) 시 즉각적이고 영구적으로 파기됩니다.
-* **[학생 부주의로 인한 개인정보 유출 면책]** 실습실 등 공용 PC 사용 후 브라우저 미종료, 개인 기기 해킹 등 **학생 본인의 부주의로 인해 발생한 개인정보 유출 사고에 대하여 기자재실은 일체의 민·형사상 책임을 지지 않습니다.
-  ** (공용 PC 사용 후 반드시 창을 닫아주시기 바랍니다.)
+* **[학생 부주의로 인한 개인정보 유출 면책]** 실습실 등 공용 PC 사용 후 브라우저 미종료, 개인 기기 해킹 등 **학생 본인의 부주의로 인해 발생한 개인정보 유출 사고에 대하여 기자재실은 일체의 민·형사상 책임을 지지 않습니다. (공용 PC 사용 후 반드시 창을 닫아주시기 바랍니다.)**
 
 
-우리 모두의 소중한 기자재입니다. 안전하고 올바른 이용을 부탁드립니다. 감사합니다."""
+우리 모두의 소중한 기자재입니다. 안전하고 올바른 이용을 부탁드립니다.
+감사합니다."""
 
 def load_data():
     """구글 스프레드시트에서 데이터를 불러옵니다."""
@@ -363,7 +360,7 @@ elif menu == "신규 대여 신청":
         st.markdown("---")
         st.subheader("📊 실시간 대여 현황")
         active_rentals_status = df_rental[df_rental["승인상태"] == "대여중"]
-        
+       
         if active_rentals_status.empty: 
             st.info("현재 대여 중인 장비가 없습니다.")
         else: 
@@ -374,7 +371,6 @@ elif menu == "신규 대여 신청":
         name = st.text_input("신청인 이름", placeholder="홍길동", key="input_name")
         student_id = st.text_input("학번", placeholder="20261234", key="input_student_id")
         phone = st.text_input("연락처", placeholder="010-XXXX-XXXX", key="input_phone")
- 
         professor = st.text_input("담당 교수명", placeholder="김교수", key="input_professor")
         course_name = st.text_input("교과명", placeholder="예: 영상제작기초", key="input_course")
         shooting_loc = st.text_input("📍 촬영 장소", placeholder="예: 스튜디오 A", key="input_location")
@@ -400,7 +396,6 @@ elif menu == "신규 대여 신청":
             if st.button("🛒 선택한 항목 장바구니 담기", use_container_width=True):
                 selected_items = edited_avail[edited_avail["선택"] == True]
                 for _, row in selected_items.iterrows():
- 
                     p_c, s_c, req_qty = row["품명_clean"], row["규격_clean"], row["신청수량"]
                     found = False
                     for item in st.session_state.cart:
@@ -416,7 +411,6 @@ elif menu == "신규 대여 신청":
             st.dataframe(pd.DataFrame(st.session_state.cart).rename(columns={"품명_clean":"품명", "규격_clean":"규격", "수량":"수량"}), hide_index=True)
             if st.button("🚀 최종 대여 신청 제출", type="primary", use_container_width=True):
                 if not name.strip() or not student_id.strip(): st.error("❌ 이름과 학번을 입력해주세요.")
-            
                 else:
                     prefix = f"REQ-{datetime.today().strftime('%Y%m')}-"
                     same_month = df_rental[df_rental["신청ID"].astype(str).str.startswith(prefix, na=False)]
@@ -430,7 +424,6 @@ elif menu == "신규 대여 신청":
                         matching = df_equip[(df_equip["현재상태"] == "대여가능") & (df_equip["품명"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip() == p_c) & (df_equip["규격"].str.replace(r"\s*\(.*?\)", "", regex=True).str.strip() == s_c)].head(qty)
                         for _, item in matching.iterrows():
                             new_rows.append({"신청ID": new_req_id, "장비ID": item["장비ID"], "품명": item["품명"], "규격": item["규격"], "이름": name.strip(), "학번": student_id.strip(), "연락처": phone.strip(), "담당교수": professor.strip(), "교과명": course_name.strip(), "촬영장소": shooting_loc.strip(), "기타기자재": extra_items.strip(), "대여날짜": start_date_str, "반납일자": end_date_str, "승인상태": "승인대기"})
-      
                             df_equip.loc[df_equip["장비ID"] == item["장비ID"], "현재상태"] = "승인대기"
 
                     df_rental = pd.concat([df_rental, pd.DataFrame(new_rows)], ignore_index=True) if not df_rental.empty else pd.DataFrame(new_rows)
@@ -446,7 +439,14 @@ elif menu == "대여 신청 현황":
         st.info("신청 내역이 없습니다.")
     else:
         active_rentals = df_rental[~df_rental["승인상태"].isin(["반납완료", "승인거절"])].copy()
-        st.dataframe(active_rentals, use_container_width=True, hide_index=True)
+        
+        # 📌 수정된 부분: 관리자가 아닐 경우 학번, 연락처 열을 숨김 처리
+        if not is_admin:
+            display_rentals = active_rentals.drop(columns=["학번", "연락처"], errors="ignore")
+        else:
+            display_rentals = active_rentals
+
+        st.dataframe(display_rentals, use_container_width=True, hide_index=True)
 
         if is_admin:
             st.subheader("🔓 관리자 전용 - 개별 대여 승인 및 거절 처리")
@@ -464,7 +464,6 @@ elif menu == "대여 신청 현황":
                         df_rental.loc[df_rental["장비ID"].isin(target_ids), "승인상태"] = "대여중"
                         df_equip.loc[df_equip["장비ID"].isin(target_ids), "현재상태"] = "대여중"
                         save_data(df_equip, df_rental)
-                      
                         st.rerun()
                 if st.button("❌ 거절하기"):
                     sel = edited_pending[edited_pending["선택"] == True]
@@ -545,7 +544,7 @@ elif menu == "대여 신청 현황":
                                     </tr>
                                 </table>
                             </div>
-                            
+    
                             <div style="margin-top: auto; padding-top: 20px;">
                                 <div style="font-size:12px; line-height:1.5; text-align:left; border:1px solid #000; padding:10px;">
                                     <p style="font-weight:bold; margin:0 0 4px 0;">◎ 준수사항</p>
@@ -561,19 +560,19 @@ elif menu == "대여 신청 현황":
                                         <li><b>용도 이외의 사용:</b> 이후 기자재 대여 금함.</li>
                                     </ol>
                                 </div>
-                                 
+                 
                                 <div style="margin-top:15px; text-align:center; font-size:14px; font-weight:bold;">
                                     <p>위의 준수사항을 수락하며 기자재의 대여를 신청합니다.</p>
                                 </div>
-                                 
+                         
                                 <div style="margin-top:15px; text-align:center; font-size:14px;">
                                     <span style="margin-right:20px;">20</span><span style="margin-right:20px;">년</span><span style="margin-right:20px;">월</span><span>일</span>
                                 </div>
-                                 
+                            
                                 <div style="margin-top:15px; text-align:right; font-size:14px; padding-right:50px;">
                                     <p style="margin-bottom:10px;">신청인 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
                                     <p>승인자 : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인/서명)</p>
-                                 </div>
+                                </div>
                                 
                                 <div style="margin-top: 15px; border-top: 2px dashed #000; padding-top: 15px; text-align: left; font-family: 'Malgun Gothic', sans-serif; line-height: 1.3;">
                                     <p style="margin: 0; font-size: 13px; font-weight: 800;">다빈치캠퍼스 신청서 접수 및 문의</p>
@@ -603,7 +602,7 @@ elif menu == "대여 신청 현황":
                                 __HTML_CONTENT_PLACEHOLDER__
                             </div>
                             
-                             <script>
+                            <script>
                                 function triggerPrint() {
                                     const printData = document.getElementById('print-source-data').innerHTML;
                                     const printWindow = window.open('', '_blank', 'width=850,height=950');
@@ -837,6 +836,7 @@ elif menu == "⚙️ 장비 관리 (관리자 전용)":
                     except Exception as e:
                         st.warning(f"이미지 변환 중 오류 발생: {e}")
                         final_image_val = new_img_url.strip()
+            
                 elif new_img_url.strip():
                     final_image_val = new_img_url.strip()
                 
