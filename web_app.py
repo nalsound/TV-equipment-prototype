@@ -5,8 +5,8 @@ import base64
 from datetime import datetime
 import pandas as pd
 import streamlit as st
-import altair as alt  
-from streamlit_gsheets import GSheetsConnection 
+import altair as alt
+from streamlit_gsheets import GSheetsConnection
 from PIL import Image
 
 # ==========================================
@@ -360,7 +360,7 @@ elif menu == "신규 대여 신청":
         st.markdown("---")
         st.subheader("📊 실시간 대여 현황")
         active_rentals_status = df_rental[df_rental["승인상태"] == "대여중"]
-       
+        
         if active_rentals_status.empty: 
             st.info("현재 대여 중인 장비가 없습니다.")
         else: 
@@ -380,7 +380,7 @@ elif menu == "신규 대여 신청":
         extra_items = st.text_input("🎒 기타 기자재", placeholder="예) 삼각대 1, SD카드 2", key="input_extra")
 
         df_avail_copy = df_equip[df_equip["현재상태"] == "대여가능"].copy()
- 
+
         if df_avail_copy.empty:
             st.warning("⚠️ 대여 가능한 재고가 없습니다.")
         else:
@@ -724,20 +724,29 @@ elif menu == "기자재 반납 처리":
     st.header("🔄 기자재 반납 처리 (관리자 전용)")
     active_rentals = df_rental[df_rental["승인상태"] == "대여중"].copy()
     if not active_rentals.empty:
-        # [수정됨] 일괄 선택(전체 선택) 체크박스 기능 추가
+        # 일괄 선택(전체 선택) 체크박스 기능 추가
         select_all_return = st.checkbox("☑️ 일괄 선택 (전체 선택)", key="select_all_return")
         active_rentals.insert(0, "선택", select_all_return)
         
         edited_active = st.data_editor(active_rentals, hide_index=True)
-        if st.button("👍 반납 확인 (기록 완전 삭제)", type="primary"):
+        if st.button("👍 반납 확인 (개인정보 파기 및 장비 이력 보존)", type="primary"):
             sel = edited_active[edited_active["선택"] == True]
-      
+       
             if not sel.empty:
                 t_ids = sel["장비ID"].tolist()
+                
+                # 1. 장비 시트: 상태를 다시 '대여가능'으로 원복
                 df_equip.loc[df_equip["장비ID"].isin(t_ids), "현재상태"] = "대여가능"
-                df_rental = df_rental[~df_rental["장비ID"].isin(t_ids)].copy()
+                
+                # 2. 대여 시트: 상태를 '반납완료'로 변경하고, 개인정보만 마스킹/파기 처리 (기록은 남김)
+                df_rental.loc[df_rental["장비ID"].isin(t_ids), "승인상태"] = "반납완료"
+                df_rental.loc[df_rental["장비ID"].isin(t_ids), "이름"] = "파기됨"
+                df_rental.loc[df_rental["장비ID"].isin(t_ids), "학번"] = "파기됨"
+                df_rental.loc[df_rental["장비ID"].isin(t_ids), "연락처"] = "파기됨"
+                
+                # 데이터 저장
                 save_data(df_equip, df_rental)
-                st.success("반납 완료 및 정보 삭제 완료")
+                st.success("✅ 반납이 완료되었으며, 학생의 개인정보(이름, 학번, 연락처)가 안전하게 파기되었습니다.")
                 st.rerun()
 
 # --- 6. 장비 관리 ---
